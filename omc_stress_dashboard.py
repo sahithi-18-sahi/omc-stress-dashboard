@@ -197,14 +197,14 @@ tab_metrics, tab_charts, tab_formulas, tab_risk = st.tabs(
 )
 
 # ─── COMPUTE ALL VALUES ───────────────────────
-bills   = {o["id"]: import_bill(o, brent, fx, urals)  for o in OMC}
-bills0  = {o["id"]: import_bill(o, **BASE)              for o in OMC}
-fx_inc  = {o["id"]: fx_income(o,   brent, fx, urals)  for o in OMC}
-fx_inc0 = {o["id"]: fx_income(o,   **BASE)              for o in OMC}
-fees    = {o["id"]: fee_income(bills[o["id"]])          for o in OMC}
-fees0   = {o["id"]: fee_income(bills0[o["id"]])         for o in OMC}
-snrr    = {o["id"]: snrr_income(o,  brent, fx, urals)  for o in SNRR_SET}
-snrr0   = {o["id"]: snrr_income(o,  **BASE)             for o in SNRR_SET}
+bills   = {o["id"]: import_bill(o,  brent, fx, urals)                          for o in OMC}
+bills0  = {o["id"]: import_bill(o,  BASE["brent"], BASE["fx"], BASE["urals"])  for o in OMC}
+fx_inc  = {o["id"]: fx_income(o,    brent, fx, urals)                          for o in OMC}
+fx_inc0 = {o["id"]: fx_income(o,    BASE["brent"], BASE["fx"], BASE["urals"])  for o in OMC}
+fees    = {o["id"]: fee_income(bills[o["id"]])                                 for o in OMC}
+fees0   = {o["id"]: fee_income(bills0[o["id"]])                                for o in OMC}
+snrr    = {o["id"]: snrr_income(o,  brent, fx, urals)                          for o in SNRR_SET}
+snrr0   = {o["id"]: snrr_income(o,  BASE["brent"], BASE["fx"], BASE["urals"]) for o in SNRR_SET}
 ofacs   = {o["id"]: ofac_score(o,   ofac_v, urals)     for o in OFAC_SET}
 ofacs0  = {o["id"]: ofac_score(o,   BASE["ofac"], BASE["urals"]) for o in OFAC_SET}
 
@@ -531,7 +531,7 @@ with tab_risk:
             summary.append({
                 "OMC":         o["name"],
                 "Bill (₹Cr)":  bill_v,
-                "WC Δ (₹Cr)":  bill_v - import_bill(o, **BASE),
+                "WC Δ (₹Cr)":  bill_v - import_bill(o, BASE["brent"], BASE["fx"], BASE["urals"]),
                 "OFAC":        ofac_score(o, ofac_v, urals),
                 "Risk":        risk_label(overall_risk(o, ofac_v, urals)),
             })
