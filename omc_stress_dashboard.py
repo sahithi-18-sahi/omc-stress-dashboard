@@ -164,7 +164,7 @@ def signal_color(level):
 # ─────────────────────────────────────────────
 with st.sidebar:
     st.markdown("### OMC Stress Model")
-    st.caption("Indian OMC Stress test model· FY25–26")
+    st.caption("ICICI Bank · FY25–26")
     st.markdown("---")
     st.markdown("**Preset Scenarios**")
     scenario = st.radio("", list(SCENARIOS.keys()), horizontal=True, label_visibility="collapsed")
@@ -609,8 +609,8 @@ with tab_formulas:
         ("5 · OFAC Exposure Score (0–100)",
          "OFAC multiplier            : Low=1.0 | Medium=1.8 | High=3.0\n\n"
          "OFAC_ROUTING_SENSITIVITY   = 0.50   ← independently set; measures compliance risk\n"
-         "                                       from Vostro routing, NOT volume of routing\n"
-         "                                       (each Vostro txn needs individual OFAC screening;\n"
+         "                                       from SNRR routing, NOT volume of routing\n"
+         "                                       (each SNRR txn needs individual OFAC screening;\n"
          "                                        compliance cost >> float income if flagged)\n\n"
          "URALS_CEIL                 = $15    ← data-derived ceiling (90th pctile of FY25-26)\n\n"
          "Urals routing factor       = 1 + min(Urals, $15) / $15 × 0.50\n"
@@ -624,9 +624,7 @@ with tab_formulas:
         ("6 · Overall Risk Score — DATA-DERIVED WEIGHTS",
          "Score = Oil(0.25) + FX(0.20) + Russia(0.20) + (OFAC÷25)(0.35)\n\n"
          f"Regression-derived raw: Brent {VAR_CONTRIB['Brent']*100:.1f}% | "
-         f"FX {VAR_CONTRIB['FX']*100:.1f}% | Urals {VAR_CONTRIB['Urals']*100:.1f}% | OFAC 0%\n"
-         "Adjusted: Oil 25% (hedgeable↓) | FX 20% (β=0.778 amplifier↑)\n"
-         "          Russia 20% (structural lock-in↑) | OFAC 35% (binary tail risk↑)\n\n"
+         f"FX {VAR_CONTRIB['FX']*100:.1f}% | Urals {VAR_CONTRIB['Urals']*100:.1f}% | OFAC 0%\n\n"
          "Russia category: >50% → 4 | >30% → 3 | else → 2\n"
          "Rating thresholds: VH≥3.2 | H≥2.5 | M≥1.8 | L<1.8",
          f"R²={OLS_R2*100:.1f}% from OLS (n=23)."),
@@ -687,13 +685,13 @@ with tab_risk:
         else:
             actions.append(("🟢 Brent normal", "Standard LC monitoring in place"))
         if fx >= 90:
-            actions.append(("🔴 FX > ₹90", "Push FX hedging; review settlement conversions"))
+            actions.append(("🔴 FX > ₹90", "Review FX settlement terms; flag rupee liquidity risk"))
         elif fx >= 84:
             actions.append(("🟡 FX ₹84–90", "Track daily settlement; flag rupee liquidity"))
         if urals >= 15:
             actions.append(("🔴 Urals ≥ $15 ceiling", "Escalate KYC on DMCC intermediaries"))
         elif urals >= 8:
-            actions.append(("🟡 Urals $8–15", "Monitor Vostro routing; check correspondent appetite"))
+            actions.append(("🟡 Urals $8–15", "Monitor SNRR routing; check correspondent appetite"))
         if ofac_v >= 2:
             actions.append(("🔴 OFAC High", "Mandatory escalation; hold Nayara disbursements"))
         elif ofac_v == 1:
@@ -716,4 +714,16 @@ with tab_risk:
             "Risk":       risk_label(overall_risk(o, ofac_v, urals)),
         } for o in OMC]), hide_index=True, use_container_width=True)
 
-       
+        st.markdown("---")
+        st.markdown("##### Model Weights (data-derived)")
+        fig = go.Figure(go.Bar(
+            x=["Oil Price","FX / INR","Russian / Urals","OFAC / Compliance"],
+            y=[W_OIL*100, W_FX*100, W_RU*100, W_OFAC*100],
+            marker_color=["#378add","#1d9e75","#ef9f27","#e24b4a"],
+            text=[f"{v:.0f}%" for v in [W_OIL*100, W_FX*100, W_RU*100, W_OFAC*100]],
+            textposition="outside",
+        ))
+        fig.update_layout(height=220, showlegend=False,
+                          margin=dict(t=10,b=10,l=10,r=10),
+                          yaxis=dict(range=[0,45], title="%"))
+        st.plotly_chart(fig, use_container_width=True)
