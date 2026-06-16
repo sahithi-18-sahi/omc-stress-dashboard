@@ -443,7 +443,7 @@ R² = {OLS_R2:.4f}  ({OLS_R2*100:.1f}% of IB return variation explained, n=24)""
 | β₂ FX (USD/INR) | **{OLS_BETA[2]:+.4f}** | Rupee depreciates 1% → Indian Basket rises **{abs(OLS_BETA[2])*100:.2f}%** (negative sign: FX_return is positive when rupee weakens, but that raises import cost) |
 | β₃ Urals | **{OLS_BETA[3]:+.4f}** | Urals rises 1% → Indian Basket falls **{abs(OLS_BETA[3])*100:.2f}%** (Urals rising = smaller discount = costlier Russian crude) |
 
-R² = **{OLS_R2*100:.1f}%** — these three variables together explain {OLS_R2*100:.1f}% of all Indian Basket monthly return variation (n=23).
+R² = **{OLS_R2*100:.1f}%** — these three variables together explain {OLS_R2*100:.1f}% of all Indian Basket monthly return variation (n=24).
 """)
 
         with st.expander("Step 2 — What is STD (standard deviation)?", expanded=True):
@@ -451,7 +451,7 @@ R² = **{OLS_R2*100:.1f}%** — these three variables together explain {OLS_R2*1
             _sf_val = np.std(FX_R)
             _su_val = np.std(URALS_R)
             st.markdown(f"""
-STD measures **how much each variable actually swings** month to month across your 23 observations.
+STD measures **how much each variable actually swings** month to month across your 24 observations.
 
 | Variable | STD | Meaning |
 |---|---|---|
@@ -530,8 +530,8 @@ It has BOTH the largest β ({OLS_BETA[1]:.4f}) AND large monthly swings ({_sb_va
             )
             st.plotly_chart(fig_vc, use_container_width=True)
 
-        with st.expander("Monthly Returns Table — raw data behind the regression (n=23)", expanded=False):
-            ret_months_labels = ["May-24","Jun-24","Jul-24","Aug-24","Sep-24","Oct-24",
+        with st.expander("Monthly Returns Table — raw data behind the regression (n=24)", expanded=False):
+            ret_months_labels = ["Apr-24","May-24","Jun-24","Jul-24","Aug-24","Sep-24","Oct-24",
                                  "Nov-24","Dec-24","Jan-25","Feb-25","Mar-25","Apr-25",
                                  "May-25","Jun-25","Jul-25","Aug-25","Sep-25","Oct-25",
                                  "Nov-25","Dec-25","Jan-26","Feb-26","Mar-26"]
