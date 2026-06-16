@@ -164,7 +164,7 @@ def signal_color(level):
 # ─────────────────────────────────────────────
 with st.sidebar:
     st.markdown("### OMC Stress Model")
-    st.caption("Indian OMCs Stress testing model · FY25–26")
+    st.caption("Indian OMCs Stress Test model · FY25–26")
     st.markdown("---")
     st.markdown("**Preset Scenarios**")
     scenario = st.radio("", list(SCENARIOS.keys()), horizontal=True, label_visibility="collapsed")
@@ -385,7 +385,7 @@ with tab_corr:
 """)
 
     with sub2:
-        st.markdown("##### Returns Correlation Matrix (monthly % changes, n=24)")
+        st.markdown("##### Returns Correlation Matrix (monthly % changes, 24 months of prices → 23 monthly returns)")
         st.success("✅ Returns-based correlations remove trend effects — this is the basis for risk weight derivation.", icon="📊")
 
         labs_r = list(RET_CORR.columns)
@@ -400,7 +400,7 @@ with tab_corr:
         with col_a:
             st.markdown(f"""
 **Key findings:**
-- **Brent ↔ Indian Basket: r = {RET_CORR.loc['Brent','Indian Basket']:.3f}** → R² = {RET_CORR.loc['Brent','Indian Basket']**2*100:.1f}% — Brent virtually is the Indian import benchmark
+- **Brent ↔ Indian Basket: r = {RET_CORR.loc['Brent','Indian Basket']:.3f}** → R² = {RET_CORR.loc['Brent','Indian Basket']**2*100:.1f}% — Brent virtually IS the Indian import benchmark
 - **WTI ↔ Brent: r = {RET_CORR.loc['WTI','Brent']:.3f}** — Near-identical month-to-month
 - **Dubai ↔ Brent: r = {RET_CORR.loc['Dubai','Brent']:.3f}** — Gulf benchmarks co-integrated
 """)
@@ -418,7 +418,7 @@ with tab_corr:
   + {OLS_BETA[2]:.4f} × FX_return
   + {OLS_BETA[3]:.4f} × Urals_return
 
-R² = {OLS_R2:.4f}  ({OLS_R2*100:.1f}% of IB return variation explained, n=24)""", language=None)
+R² = {OLS_R2:.4f}  ({OLS_R2*100:.1f}% of IB return variation explained, 24 months prices → 23 returns)""", language=None)
 
         st.markdown(f"""
 | Variable | β | Variance contribution |
@@ -443,7 +443,7 @@ R² = {OLS_R2:.4f}  ({OLS_R2*100:.1f}% of IB return variation explained, n=24)""
 | β₂ FX (USD/INR) | **{OLS_BETA[2]:+.4f}** | Rupee depreciates 1% → Indian Basket rises **{abs(OLS_BETA[2])*100:.2f}%** (negative sign: FX_return is positive when rupee weakens, but that raises import cost) |
 | β₃ Urals | **{OLS_BETA[3]:+.4f}** | Urals rises 1% → Indian Basket falls **{abs(OLS_BETA[3])*100:.2f}%** (Urals rising = smaller discount = costlier Russian crude) |
 
-R² = **{OLS_R2*100:.1f}%** — these three variables together explain {OLS_R2*100:.1f}% of all Indian Basket monthly return variation (n=24).
+R² = **{OLS_R2*100:.1f}%** — these three variables together explain {OLS_R2*100:.1f}% of all Indian Basket monthly return variation (24 months of prices → 23 monthly returns).
 """)
 
         with st.expander("Step 2 — What is STD (standard deviation)?", expanded=True):
@@ -451,7 +451,7 @@ R² = **{OLS_R2*100:.1f}%** — these three variables together explain {OLS_R2*1
             _sf_val = np.std(FX_R)
             _su_val = np.std(URALS_R)
             st.markdown(f"""
-STD measures **how much each variable actually swings** month to month across your 24 observations.
+STD measures **how much each variable actually swings** month to month across your 23 observations.
 
 | Variable | STD | Meaning |
 |---|---|---|
@@ -530,8 +530,8 @@ It has BOTH the largest β ({OLS_BETA[1]:.4f}) AND large monthly swings ({_sb_va
             )
             st.plotly_chart(fig_vc, use_container_width=True)
 
-        with st.expander("Monthly Returns Table — raw data behind the regression (n=24)", expanded=False):
-            ret_months_labels = ["Apr-24","May-24","Jun-24","Jul-24","Aug-24","Sep-24","Oct-24",
+        with st.expander("Monthly Returns Table — raw data behind the regression (24 months prices → 23 returns)", expanded=False):
+            ret_months_labels = ["May-24","Jun-24","Jul-24","Aug-24","Sep-24","Oct-24",
                                  "Nov-24","Dec-24","Jan-25","Feb-25","Mar-25","Apr-25",
                                  "May-25","Jun-25","Jul-25","Aug-25","Sep-25","Oct-25",
                                  "Nov-25","Dec-25","Jan-26","Feb-26","Mar-26"]
@@ -627,7 +627,7 @@ with tab_formulas:
          f"FX {VAR_CONTRIB['FX']*100:.1f}% | Urals {VAR_CONTRIB['Urals']*100:.1f}% | OFAC 0%\n\n"
          "Russia category: >50% → 4 | >30% → 3 | else → 2\n"
          "Rating thresholds: VH≥3.2 | H≥2.5 | M≥1.8 | L<1.8",
-         f"R²={OLS_R2*100:.1f}% from OLS (n=23)."),
+         f"R²={OLS_R2*100:.1f}% from OLS (24 months prices → 23 returns)."),
     ]
 
     for title, eq, note in formulas:
