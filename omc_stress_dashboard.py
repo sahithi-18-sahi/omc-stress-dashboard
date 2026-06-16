@@ -1,6 +1,6 @@
 """
 OMC Transaction Banking Stress Model
-ICICI Bank · India Oil Marketing Companies · FY25–26
+ India Oil Marketing Companies · Sahithi
 Streamlit + Plotly implementation of omc_stress_dashboard_v4.html
 Run: streamlit run omc_stress_dashboard.py
 """
@@ -69,7 +69,7 @@ def fee_income(bill):
     return round(bill * 0.0015)
 
 def snrr_income(o, brent, fx, urals):
-    """SNRR / Vostro income: INR float on Russian settlement (₹ Cr/month)"""
+    """SNRR: INR float on Russian settlement (₹ Cr/month)"""
     mmt   = o["throughput"] / 12
     barr  = mmt * 7.33e6
     r_p   = max(brent - urals, 20)
@@ -269,7 +269,7 @@ with tab_metrics:
     st.divider()
 
     # SNRR income
-    st.markdown("##### SNRR / Vostro Income — INR float on Russian settlement (₹ Cr/month)")
+    st.markdown("##### SNRR  — INR float on Russian settlement (₹ Cr/month)")
     cols = st.columns(4)
     for i, o in enumerate(SNRR_SET):
         with cols[i]:
@@ -411,7 +411,7 @@ with tab_formulas:
          "Fee income = Import bill (₹ Cr) × 0.15%",
          "LC issuance + trade finance + bank guarantee commissions at 0.15% per month."),
 
-        ("5 · SNRR / Vostro income (₹ Cr / month)",
+        ("5 · SNRR  (₹ Cr / month)",
          "Russian import (₹ Cr) = Russian barrels × Russian price × USD/INR ÷ 10,000,000\n"
          "Urals factor = 1 + (Urals discount ÷ 25) × 0.30\n"
          "SNRR income = Russian import (₹ Cr) × 0.10% × Urals factor",
