@@ -1,6 +1,6 @@
 """
 OMC Transaction Banking Stress Model
-ICICI Bank · India Oil Marketing Companies · FY25–26
+ India Oil Marketing Companies · FY25–26
 Updated with data-derived weights, correlation analytics, Urals factor justification
 Run: streamlit run omc_stress_dashboard.py
 """
@@ -634,12 +634,12 @@ with tab_formulas:
          "LC issuance + BG commission + trade finance at 0.15%/month (~1.8% p.a.). "
          "Scales directly with import bill — effectively Brent-driven."),
 
-        ("5 · SNRR / Vostro Income (₹ Cr / month)",
+        ("5 · SNRR Income (₹ Cr / month)",
          "Russian import (₹ Cr)  = Russian barrels × Russian price × USD/INR ÷ 10,000,000\n\n"
          "INR_ROUTING_UPLIFT     = 0.27   ← RBI data: INR share grew from 5% (FY22) to 32% (FY25)\n"
          "                                   32% − 5% = 27 ppts incremental routing at peak discount\n\n"
          "URALS_CEIL             = $15    ← 90th pctile of FY25-26 observed discounts\n\n"
-         "Urals routing factor   = 1 + min(Urals discount, URALS_CEIL) / URALS_CEIL × INR_ROUTING_UPLIFT\n"
+         "Urals routing factor   = 1 + min(Urals discount,$15 ) /$15 × 0.27\n"
          "                       = 1 + min(Urals, 15) / 15 × 0.27\n\n"
          "SNRR Income            = Russian import (₹ Cr) × 0.10% × Urals routing factor",
          "The +1 is the baseline — SNRR income exists even at zero Urals discount. "
@@ -654,7 +654,7 @@ with tab_formulas:
          "                                       (each Vostro txn needs individual OFAC screening;\n"
          "                                        compliance cost >> 0.10% float income if flagged)\n\n"
          "URALS_CEIL                 = $15    ← same data-derived ceiling as SNRR\n\n"
-         "Urals routing factor       = 1 + min(Urals, URALS_CEIL) / URALS_CEIL × OFAC_ROUTING_SENSITIVITY\n"
+         "Urals routing factor       = 1 + min(Urals, $15) / $15 × 0.50\n"
          "                           = 1 + min(Urals, 15) / 15 × 0.50\n\n"
          "Score = min(Base weight × Russian share × OFAC mult × Urals factor × 12, 100)\n\n"
          "Base weights: IOCL=1 | BPCL=2 | HPCL=2 | Nayara=4\n"
@@ -671,8 +671,7 @@ with tab_formulas:
          "          Russia 20% (structural lock-in↑) | OFAC 35% (binary tail risk↑)\n\n"
          "Russia category: >50% → 4 | >30% → 3 | else → 2\n"
          "Rating thresholds: VH≥3.2 | H≥2.5 | M≥1.8 | L<1.8",
-         f"R²={OLS_R2*100:.1f}% from OLS (n=23). OFAC gets highest weight despite zero R² — "
-         "absent from normal-period data = largest tail risk."),
+         f"R²={OLS_R2*100:.1f}% from OLS (n=23). ,
     ]
 
     for title, eq, note in formulas:
