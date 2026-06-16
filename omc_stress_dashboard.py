@@ -713,6 +713,3 @@ with tab_risk:
             "OFAC":       ofac_score(o, ofac_v, urals),
             "Risk":       risk_label(overall_risk(o, ofac_v, urals)),
         } for o in OMC]), hide_index=True, use_container_width=True)
-
-      
-        st.plotly_chart(fig, use_container_width=True)
