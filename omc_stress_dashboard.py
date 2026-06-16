@@ -385,7 +385,7 @@ with tab_corr:
 """)
 
     with sub2:
-        st.markdown("##### Returns Correlation Matrix (monthly % changes, n=23)")
+        st.markdown("##### Returns Correlation Matrix (monthly % changes, n=24)")
         st.success("✅ Returns-based correlations remove trend effects — this is the basis for risk weight derivation.", icon="📊")
 
         labs_r = list(RET_CORR.columns)
@@ -400,7 +400,7 @@ with tab_corr:
         with col_a:
             st.markdown(f"""
 **Key findings:**
-- **Brent ↔ Indian Basket: r = {RET_CORR.loc['Brent','Indian Basket']:.3f}** → R² = {RET_CORR.loc['Brent','Indian Basket']**2*100:.1f}% — Brent virtually IS the Indian import benchmark
+- **Brent ↔ Indian Basket: r = {RET_CORR.loc['Brent','Indian Basket']:.3f}** → R² = {RET_CORR.loc['Brent','Indian Basket']**2*100:.1f}% — Brent virtually is the Indian import benchmark
 - **WTI ↔ Brent: r = {RET_CORR.loc['WTI','Brent']:.3f}** — Near-identical month-to-month
 - **Dubai ↔ Brent: r = {RET_CORR.loc['Dubai','Brent']:.3f}** — Gulf benchmarks co-integrated
 """)
@@ -418,7 +418,7 @@ with tab_corr:
   + {OLS_BETA[2]:.4f} × FX_return
   + {OLS_BETA[3]:.4f} × Urals_return
 
-R² = {OLS_R2:.4f}  ({OLS_R2*100:.1f}% of IB return variation explained, n=23)""", language=None)
+R² = {OLS_R2:.4f}  ({OLS_R2*100:.1f}% of IB return variation explained, n=24)""", language=None)
 
         st.markdown(f"""
 | Variable | β | Variance contribution |
