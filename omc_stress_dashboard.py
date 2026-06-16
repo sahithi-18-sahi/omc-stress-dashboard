@@ -260,7 +260,7 @@ st.markdown(f"""
 # ─────────────────────────────────────────────
 tab_metrics, tab_charts, tab_corr, tab_method, tab_formulas, tab_risk = st.tabs([
     "📊 Output Metrics", "📈 Charts",
-    "🔗 Correlation Analysis", "⚖️ Methodology",
+    "🔗 Correlation Analysis",
     "🔢 Formulas", "⚠️ Risk Ranking"
 ])
  
@@ -309,7 +309,7 @@ with tab_metrics:
  
     st.divider()
  
-    st.markdown("##### SNRR / Vostro Income — INR float on Russian settlement (₹ Cr/month)")
+    st.markdown("##### SNRR Income — INR float on Russian settlement (₹ Cr/month)")
     cols = st.columns(4)
     for i, o in enumerate(SNRR_SET):
         d = snrr[o["id"]] - snrr0[o["id"]]
@@ -652,7 +652,7 @@ with tab_formulas:
          "LC issuance + BG commission + trade finance at 0.15%/month (~1.8% p.a.). "
          "Scales directly with import bill — effectively Brent-driven."),
  
-        ("5 · SNRR / Vostro Income (₹ Cr / month)",
+        ("5 · SNRR  Income (₹ Cr / month)",
          "Russian import (₹ Cr)  = Russian barrels × Russian price × USD/INR ÷ 10,000,000\n\n"
          "INR_ROUTING_UPLIFT     = 0.27   ← RBI data: INR share grew from 5% (FY22) to 32% (FY25)\n"
          "                                   32% − 5% = 27 ppts incremental routing at peak discount\n\n"
