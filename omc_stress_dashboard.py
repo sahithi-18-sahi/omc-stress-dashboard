@@ -671,7 +671,7 @@ with tab_formulas:
          "          Russia 20% (structural lock-in↑) | OFAC 35% (binary tail risk↑)\n\n"
          "Russia category: >50% → 4 | >30% → 3 | else → 2\n"
          "Rating thresholds: VH≥3.2 | H≥2.5 | M≥1.8 | L<1.8",
-         f"R²={OLS_R2*100:.1f}% from OLS (n=23). ,
+         f"R²={OLS_R2*100:.1f}% from OLS (n=23). 
     ]
 
     for title, eq, note in formulas:
