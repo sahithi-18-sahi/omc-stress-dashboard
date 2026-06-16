@@ -110,11 +110,9 @@ OMC = [
     {"id":"nayara", "name":"Nayara",   "throughput":20.00, "russianShare":0.825, "oilR":"M","fxR":"M","ofacW":4},
 ]
 PSU      = OMC[:3]
-SNRR_SET = [OMC[0], OMC[1], OMC[2], OMC[4]]
 OFAC_SET = [OMC[0], OMC[1], OMC[2], OMC[4]]
 
 URALS_CEIL = 15.0
-SNRR_ROUTING_MAX  = 0.27   # max additional INR/Vostro routing share at ceiling discount
 OFAC_ROUTING_MAX  = 0.50   # max OFAC risk amplification at ceiling discount
 
 # ─────────────────────────────────────────────
@@ -138,14 +136,6 @@ def fx_income(o, brent, fx, urals):
 
 def fee_income(bill):
     return round(bill * 0.0015)
-
-def snrr_income(o, brent, fx, urals):
-    mmt   = o["throughput"] / 12
-    barr  = mmt * 7.33e6
-    r_p   = max(brent - urals, 20)
-    r_inr = barr * o["russianShare"] * r_p * fx / 1e7
-    uf    = 1 + (min(urals, URALS_CEIL) / URALS_CEIL) * SNRR_ROUTING_MAX
-    return round(r_inr * 0.001 * uf)
 
 def ofac_score(o, ofac_v, urals):
     mult = OFAC_MULT[ofac_v]
@@ -254,8 +244,6 @@ fx_inc  = {o["id"]: fx_income(o, brent, fx, urals)                              
 fx_inc0 = {o["id"]: fx_income(o, BASE["brent"], BASE["fx"], BASE["urals"])         for o in OMC}
 fees    = {o["id"]: fee_income(bills[o["id"]])                                     for o in OMC}
 fees0   = {o["id"]: fee_income(bills0[o["id"]])                                    for o in OMC}
-snrr    = {o["id"]: snrr_income(o, brent, fx, urals)                              for o in SNRR_SET}
-snrr0   = {o["id"]: snrr_income(o, BASE["brent"], BASE["fx"], BASE["urals"])       for o in SNRR_SET}
 ofacs   = {o["id"]: ofac_score(o, ofac_v, urals)                                  for o in OFAC_SET}
 ofacs0  = {o["id"]: ofac_score(o, 0, BASE["urals"])                                for o in OFAC_SET}
 
@@ -291,12 +279,6 @@ with tab_metrics:
         cols[i].metric(o["name"], f'₹{fees[o["id"]]:,} Cr', delta=f'{d:+,} Cr vs base')
 
     st.divider()
-
-    st.markdown("##### SNRR / Vostro Income — INR float on Russian settlement (₹ Cr/month)")
-    cols = st.columns(4)
-    for i, o in enumerate(SNRR_SET):
-        d = snrr[o["id"]] - snrr0[o["id"]]
-        cols[i].metric(o["name"], f'₹{snrr[o["id"]]:,} Cr', delta=f'{d:+,} Cr vs base')
 
     st.markdown("##### OFAC Exposure Score (0–100)")
     cols = st.columns(4)
@@ -339,14 +321,6 @@ with tab_charts:
             y=[fx_inc[o["id"]] for o in PSU], marker_color=PALETTE[:3],
             text=[f'₹{fx_inc[o["id"]]}' for o in PSU], textposition="outside"))
         fig.update_layout(title="FX Income (₹ Cr/month)", height=280,
-                          showlegend=False, margin=dict(t=40,b=10,l=10,r=10))
-        st.plotly_chart(fig, use_container_width=True)
-
-        fig = go.Figure(go.Bar(x=[o["name"] for o in SNRR_SET],
-            y=[snrr[o["id"]] for o in SNRR_SET],
-            marker_color=[PALETTE[0],PALETTE[1],PALETTE[2],PALETTE[4]],
-            text=[f'₹{snrr[o["id"]]}' for o in SNRR_SET], textposition="outside"))
-        fig.update_layout(title="SNRR Income (₹ Cr/month)", height=280,
                           showlegend=False, margin=dict(t=40,b=10,l=10,r=10))
         st.plotly_chart(fig, use_container_width=True)
 
@@ -487,7 +461,6 @@ STD measures **how much each variable actually swings** month to month across yo
 
 **Why STD matters:** A variable with β=0.43 but STD=0.71% barely moves the output. A variable with β=0.05 but STD=19.65% can still matter a lot. β alone is not enough.
 """)
-            # Mini bar chart of STDs
             fig_std = go.Figure(go.Bar(
                 x=["Brent", "FX (USD/INR)", "Urals"],
                 y=[_sb_val*100, _sf_val*100, _su_val*100],
@@ -532,7 +505,6 @@ Urals STD is {_su_val*100:.2f}% — nearly 2× more volatile than Brent. The sma
 **Why Brent dominates at {vb/tot*100:.1f}%:**
 It has BOTH the largest β ({OLS_BETA[1]:.4f}) AND large monthly swings ({_sb_val*100:.2f}% STD).
 """)
-            # Side-by-side bar: beta vs contribution
             fig_vc = go.Figure()
             fig_vc.add_trace(go.Bar(
                 name="|β| (sensitivity)",
@@ -634,36 +606,22 @@ with tab_formulas:
          "LC issuance + BG commission + trade finance at 0.15%/month (~1.8% p.a.). "
          "Scales directly with import bill — effectively Brent-driven."),
 
-        ("5 · SNRR Income (₹ Cr / month)",
-         "Russian import (₹ Cr)  = Russian barrels × Russian price × USD/INR ÷ 10,000,000\n\n"
-         "INR_ROUTING_UPLIFT     = 0.27   ← RBI data: INR share grew from 5% (FY22) to 32% (FY25)\n"
-         "                                   32% − 5% = 27 ppts incremental routing at peak discount\n\n"
-         "URALS_CEIL             = $15    ← 90th pctile of FY25-26 observed discounts\n\n"
-         "Urals routing factor   = 1 + min(Urals discount,$15 ) /$15 × 0.27\n"
-         "                       = 1 + min(Urals, 15) / 15 × 0.27\n\n"
-         "SNRR Income            = Russian import (₹ Cr) × 0.10% × Urals routing factor",
-         "The +1 is the baseline — SNRR income exists even at zero Urals discount. "
-         "INR_ROUTING_UPLIFT (0.27) is the maximum additional share of Russian settlement "
-         "flowing via Vostro vs SWIFT, anchored to RBI bilateral payment data. "
-         "Nayara (82.5% Russian share) generates highest SNRR income."),
-
-        ("6 · OFAC Exposure Score (0–100)",
+        ("5 · OFAC Exposure Score (0–100)",
          "OFAC multiplier            : Low=1.0 | Medium=1.8 | High=3.0\n\n"
          "OFAC_ROUTING_SENSITIVITY   = 0.50   ← independently set; measures compliance risk\n"
          "                                       from Vostro routing, NOT volume of routing\n"
          "                                       (each Vostro txn needs individual OFAC screening;\n"
-         "                                        compliance cost >> 0.10% float income if flagged)\n\n"
-         "URALS_CEIL                 = $15    ← same data-derived ceiling as SNRR\n\n"
+         "                                        compliance cost >> float income if flagged)\n\n"
+         "URALS_CEIL                 = $15    ← data-derived ceiling (90th pctile of FY25-26)\n\n"
          "Urals routing factor       = 1 + min(Urals, $15) / $15 × 0.50\n"
          "                           = 1 + min(Urals, 15) / 15 × 0.50\n\n"
          "Score = min(Base weight × Russian share × OFAC mult × Urals factor × 12, 100)\n\n"
          "Base weights: IOCL=1 | BPCL=2 | HPCL=2 | Nayara=4\n"
          "Medium=1.8 (not 2.0): policy shift, not enforcement action",
-         "OFAC_ROUTING_SENSITIVITY (0.50) > INR_ROUTING_UPLIFT (0.27) because compliance risk "
-         "scales with regulatory consequence of routing, not just volume. "
+         "OFAC_ROUTING_SENSITIVITY (0.50) measures regulatory consequence of routing, not volume. "
          "Nayara weight=4 → Rosneft (~49%) is SDN-adjacent; any transaction is OFAC-proximate."),
 
-        ("7 · Overall Risk Score — DATA-DERIVED WEIGHTS",
+        ("6 · Overall Risk Score — DATA-DERIVED WEIGHTS",
          "Score = Oil(0.25) + FX(0.20) + Russia(0.20) + (OFAC÷25)(0.35)\n\n"
          f"Regression-derived raw: Brent {VAR_CONTRIB['Brent']*100:.1f}% | "
          f"FX {VAR_CONTRIB['FX']*100:.1f}% | Urals {VAR_CONTRIB['Urals']*100:.1f}% | OFAC 0%\n"
@@ -671,7 +629,7 @@ with tab_formulas:
          "          Russia 20% (structural lock-in↑) | OFAC 35% (binary tail risk↑)\n\n"
          "Russia category: >50% → 4 | >30% → 3 | else → 2\n"
          "Rating thresholds: VH≥3.2 | H≥2.5 | M≥1.8 | L<1.8",
-         f"R²={OLS_R2*100:.1f}% from OLS (n=23). 
+         f"R²={OLS_R2*100:.1f}% from OLS (n=23)."),
     ]
 
     for title, eq, note in formulas:
@@ -680,7 +638,7 @@ with tab_formulas:
             st.caption(note)
 
 # ─────────────────────────────────────────────
-# TAB 6 · RISK RANKING
+# TAB 5 · RISK RANKING
 # ─────────────────────────────────────────────
 with tab_risk:
     col_risk, col_actions = st.columns([3, 2])
@@ -729,7 +687,7 @@ with tab_risk:
         else:
             actions.append(("🟢 Brent normal", "Standard LC monitoring in place"))
         if fx >= 90:
-            actions.append(("🔴 FX > ₹90", "Push FX hedging; review SNRR conversions"))
+            actions.append(("🔴 FX > ₹90", "Push FX hedging; review settlement conversions"))
         elif fx >= 84:
             actions.append(("🟡 FX ₹84–90", "Track daily settlement; flag rupee liquidity"))
         if urals >= 15:
@@ -758,16 +716,4 @@ with tab_risk:
             "Risk":       risk_label(overall_risk(o, ofac_v, urals)),
         } for o in OMC]), hide_index=True, use_container_width=True)
 
-        st.markdown("---")
-        st.markdown("##### Model Weights (data-derived)")
-        fig = go.Figure(go.Bar(
-            x=["Oil Price","FX / INR","Russian / Urals","OFAC / Compliance"],
-            y=[W_OIL*100, W_FX*100, W_RU*100, W_OFAC*100],
-            marker_color=["#378add","#1d9e75","#ef9f27","#e24b4a"],
-            text=[f"{v:.0f}%" for v in [W_OIL*100, W_FX*100, W_RU*100, W_OFAC*100]],
-            textposition="outside",
-        ))
-        fig.update_layout(height=220, showlegend=False,
-                          margin=dict(t=10,b=10,l=10,r=10),
-                          yaxis=dict(range=[0,45], title="%"))
-        st.plotly_chart(fig, use_container_width=True)
+       
