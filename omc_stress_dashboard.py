@@ -33,9 +33,9 @@ OFAC_MULT   = [1.0,   1.8,      3.0]
 PALETTE = ["#378add", "#1d9e75", "#ef9f27", "#534ab7", "#d85a30"]
 
 OMC = [
-    {"id": "iocl",   "name": "IOCL",     "throughput": 71.56, "russianShare": 0.385, "oilR": "M", "fxR": "H", "ofacW": 1},
-    {"id": "bpcl",   "name": "BPCL",     "throughput": 40.51, "russianShare": 0.365, "oilR": "H", "fxR": "H", "ofacW": 2},
-    {"id": "hpcl",   "name": "HPCL",     "throughput": 21.98, "russianShare": 0.358, "oilR": "H", "fxR": "H", "ofacW": 2},
+    {"id": "iocl",   "name": "IOCL",     "throughput": 75.451, "russianShare": 0.385, "oilR": "M", "fxR": "H", "ofacW": 1},
+    {"id": "bpcl",   "name": "BPCL",     "throughput": 41.15, "russianShare": 0.365, "oilR": "H", "fxR": "H", "ofacW": 2},
+    {"id": "hpcl",   "name": "HPCL",     "throughput": 26.04, "russianShare": 0.358, "oilR": "H", "fxR": "H", "ofacW": 2},
     {"id": "ril",    "name": "Reliance", "throughput": 80.00, "russianShare": 0.05,  "oilR": "M", "fxR": "M", "ofacW": 0},
     {"id": "nayara", "name": "Nayara",   "throughput": 20.00, "russianShare": 0.825, "oilR": "M", "fxR": "M", "ofacW": 4},
 ]
@@ -106,7 +106,7 @@ def signal_color(level):
 # ─────────────────────────────────────────────
 with st.sidebar:
     st.markdown("### OMC Stress Model")
-    st.caption("ICICI Bank · FY25–26")
+    st.caption(" OMC Stress test model· FY25–26")
 
     st.markdown("---")
     st.markdown("**Preset Scenarios**")
