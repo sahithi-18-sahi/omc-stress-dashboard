@@ -164,7 +164,7 @@ def signal_color(level):
 # ─────────────────────────────────────────────
 with st.sidebar:
     st.markdown("### OMC Stress Model")
-    st.caption("ICICI Bank · FY25–26")
+    st.caption("Indian OMC Stress test model· FY25–26")
     st.markdown("---")
     st.markdown("**Preset Scenarios**")
     scenario = st.radio("", list(SCENARIOS.keys()), horizontal=True, label_visibility="collapsed")
