@@ -714,16 +714,5 @@ with tab_risk:
             "Risk":       risk_label(overall_risk(o, ofac_v, urals)),
         } for o in OMC]), hide_index=True, use_container_width=True)
 
-        st.markdown("---")
-        st.markdown("##### Model Weights (data-derived)")
-        fig = go.Figure(go.Bar(
-            x=["Oil Price","FX / INR","Russian / Urals","OFAC / Compliance"],
-            y=[W_OIL*100, W_FX*100, W_RU*100, W_OFAC*100],
-            marker_color=["#378add","#1d9e75","#ef9f27","#e24b4a"],
-            text=[f"{v:.0f}%" for v in [W_OIL*100, W_FX*100, W_RU*100, W_OFAC*100]],
-            textposition="outside",
-        ))
-        fig.update_layout(height=220, showlegend=False,
-                          margin=dict(t=10,b=10,l=10,r=10),
-                          yaxis=dict(range=[0,45], title="%"))
+      
         st.plotly_chart(fig, use_container_width=True)
