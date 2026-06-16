@@ -551,12 +551,8 @@ OFAC has zero variance contribution because no enforcement event occurred in our
 
     with st.expander("Urals Routing Factor — data-calibrated derivation", expanded=True):
         st.markdown(f"""
-**Old formula (arbitrary $25 ceiling):**
-```
-factor = 1 + (Urals_discount / 25) × 0.30
-```
 
-**New formula (data-calibrated $15 ceiling):**
+**formula (data-calibrated $15 ceiling):**
 ```
 SNRR income:  factor = 1 + min(Urals_discount, 15) / 15 × 0.30
 OFAC score:   factor = 1 + min(Urals_discount, 15) / 15 × 0.50
@@ -631,7 +627,7 @@ with tab_formulas:
          "LC issuance + BG commission + trade finance at 0.15%/month (~1.8% p.a.). "
          "Scales directly with import bill — effectively Brent-driven."),
 
-        ("5 · SNRR / Vostro Income — DATA-CALIBRATED (₹ Cr / month)",
+        ("5 · SNRR Income — DATA-CALIBRATED (₹ Cr / month)",
          "Russian import (₹ Cr) = Russian barrels × Russian price × USD/INR ÷ 10,000,000\n"
          "Urals routing factor  = 1 + min(Urals discount, 15) / 15 × 0.30\n"
          "SNRR Income           = Russian import (₹ Cr) × 0.10% × Urals routing factor\n\n"
