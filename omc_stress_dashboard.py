@@ -593,17 +593,10 @@ with tab_formulas:
             language=None
         )
         st.markdown(
-            f"**Why each piece?**\n\n"
-            f"- **1 MMT = 7.33 million barrels** - PPAC standard conversion factor for crude oil.\n"
-            f"- **/ 12** - converts annual throughput to a single month.\n"
-            f"- **Russian share** - each OMC imports a different proportion of Russian Urals crude, "
-            f"priced at a discount to Brent. Non-Russian crude is priced at Brent.\n"
-            f"- **max(Brent - Urals, $20)** - the $20 floor prevents a negative price if the discount "
-            f"ever exceeds Brent (never observed, but mathematically possible).\n"
-            f"- **/ 10,000,000** - converts USD to Rs Crore (1 Cr = 10 million). "
-            f"The USD figure is multiplied by the FX rate first, then divided by 10 million.\n"
-            f"- **OLS confirms** Beta_Brent = {OLS_BETA[1]:.3f} - near unit-elasticity, "
-            f"meaning a 1% rise in Brent raises the import bill by approximately 1%."
+            "- **1 MMT = 7.33 million barrels** - PPAC standard conversion. Divided by 12 for monthly figure.\n"
+            "- **Russian price = max(Brent - Urals, $20)** - Russian crude is priced at a discount to Brent. "
+            "The $20 floor prevents a mathematically negative price.\n"
+            "- **/ 10,000,000** - converts USD to Rs Crore after multiplying by the FX rate."
         )
 
     with st.expander("2 - Working Capital Stress (Rs Cr / month)", expanded=True):
@@ -613,11 +606,9 @@ with tab_formulas:
             language=None
         )
         st.markdown(
-            "**Why this matters:**\n\n"
-            "- The base scenario ($75 Brent, Rs85 FX, $5 Urals) represents a normal operating environment derived from FY24 averages.\n"
-            "- A **positive** WC Stress means the OMC needs more working capital (larger LC lines, more cash collateral) than in normal times.\n"
-            "- A **negative** number means the scenario is cheaper than base - the OMC needs less LC headroom.\n"
-            "- Banks use this to pre-approve additional LC headroom before a stress event materialises, not after."
+            "Base = $75 Brent, Rs85 FX, $5 Urals (FY24 normal environment). "
+            "A positive result means the OMC needs additional LC headroom vs normal operations. "
+            "Banks use this to pre-approve credit lines before stress materialises."
         )
 
     with st.expander("3 - FX Income (Rs Cr / month)", expanded=True):
@@ -628,26 +619,16 @@ with tab_formulas:
             language=None
         )
         st.markdown(
-            f"**Why each piece?**\n\n"
-            f"- **0.05% (5 bps)** - the bank's FX settlement spread. Every dollar the OMC pays for crude "
-            f"is converted through the bank at this margin. 5 bps is standard wholesale FX for large PSU clients.\n"
-            f"- **Total Import USD** - same dollar value as in the Import Bill. The bank earns its spread on every dollar that flows through it.\n"
-            f"- **x USD/INR / 10,000,000** - converts to Rs Crore, same as Import Bill formula.\n"
-            f"- **Relationship to oil price:** When Brent is high, dollar import value is large, so FX income rises with oil - "
-            f"a natural hedge for the bank. Returns correlation r(FX, Indian Basket) = {RET_CORR.loc['USD/INR','Indian Basket']:.3f} confirms this."
+            "- **0.05% (5 bps)** - standard wholesale FX settlement spread earned on every dollar converted for crude payment.\n"
+            "- **Total Import USD** - same dollar value computed in the Import Bill formula.\n"
+            "- FX income rises with Brent since a larger import bill means more USD flowing through the bank."
         )
 
     with st.expander("4 - Fee Income (Rs Cr / month)", expanded=True):
         st.code("Fee Income = Import Bill (Rs Cr) x 0.15%", language=None)
         st.markdown(
-            "**Why 0.15%?**\n\n"
-            "This 15 basis point rate is the blended monthly income from three trade finance products:\n\n"
-            "- **LC issuance fee** - charged when the bank opens a Letter of Credit guaranteeing payment to the oil seller.\n"
-            "- **Bank Guarantee commission** - charged for guaranteeing the OMC's performance obligations.\n"
-            "- **Trade finance processing** - documentation, discrepancy handling, amendment fees.\n\n"
-            "0.15%/month = approx 1.8% per annum, which is the typical all-in fee rate for PSU OMC trade finance mandates in India.\n\n"
-            "**Directly Brent-driven:** Fee income is a fixed % of the import bill. Since the import bill rises with Brent, "
-            "fee income is effectively an oil-price-linked revenue line for the bank."
+            "15 bps/month (~1.8% p.a.) is the blended rate for LC issuance, Bank Guarantee commission, "
+            "and trade finance processing fees. Scales directly with the import bill, so it rises with Brent."
         )
 
     with st.expander("5 - OFAC Exposure Score (0-100)", expanded=True):
@@ -674,41 +655,19 @@ with tab_formulas:
             language=None
         )
 
-        st.markdown("**What each component measures:**")
-
         st.markdown(
-            "**A - Base Institutional Weight** (fixed; reflects ownership and SDN proximity)\n\n"
-            "| OMC | A | Reason |\n"
-            "|---|---|---|\n"
-            "| Reliance | **0** | Negligible Russian crude (~5%); no SDN-adjacent ownership |\n"
-            "| IOCL | **1** | PSU; ~38% Russian crude; no SDN-adjacent owner; government policy provides buffer |\n"
-            "| BPCL | **2** | PSU; ~37% Russian crude; higher weight due to larger absolute transaction volume sensitivity |\n"
-            "| HPCL | **2** | Same rationale as BPCL |\n"
-            "| Nayara | **4** | Rosneft owns ~49% of Nayara. Rosneft is on the OFAC SDN list. "
-            "Any transaction involving Nayara is structurally proximate to a sanctioned entity. |\n"
-        )
-
-        st.markdown(
-            "**B - Russian Share** - the more Russian crude an OMC buys, the more transactions potentially "
-            "touch sanctioned supply chains. Nayara at 82.5% has roughly 2x the surface area of IOCL at 38.5%.\n\n"
-            "**C - Sanction Environment Multiplier** - how aggressively OFAC is currently enforcing:\n\n"
-            "- **Low (1.0):** Normal environment; no active enforcement against Indian buyers.\n"
-            "- **Medium (1.5):** Policy shift - new advisories, secondary-sanction warnings, pressure on correspondent banks. "
-            "Not yet enforcement, but compliance cost rises materially.\n"
-            "- **High (3.0):** Active enforcement - designations of intermediaries, withdrawal of correspondent banks, blocked transactions. "
-            "Risk is 3x base. Medium is 1.5 not 2.0 because the step from Low to Medium is a policy signal; "
-            "the step from Medium to High is an enforcement action - a much larger real-world consequence.\n\n"
-            "**D - Urals Pressure Amplifier** - a large Urals discount signals that compliant buyers are avoiding Russian crude. "
-            "Russia can only sell cheaply because sanctions-adjacent intermediaries are the only willing buyers. "
-            "An OMC continuing to buy at a large discount faces higher regulatory scrutiny:\n\n"
-            "- D at Urals=$0  : 1 + (0/15) x 0.50  = 1.00  (no amplification)\n"
-            "- D at Urals=$7.5: 1 + (7.5/15) x 0.50 = 1.25  (25% amplification)\n"
-            "- D at Urals=$15 : 1 + (15/15) x 0.50 = 1.50  (50% amplification)\n"
-            "- D at Urals>$15 : capped at $15 in formula, D stays at 1.50\n\n"
-            "The $15 ceiling is the 90th percentile of observed FY25-26 discounts.\n\n"
-            "**x 25 - scale calibration:** The raw product A x B x C x D produces small decimals "
-            "(e.g. IOCL base: 1 x 0.385 x 1.0 x 1.0 = 0.385). Multiplying by 25 maps IOCL base to ~9.6 "
-            "(appropriately low) and allows Nayara severe case to reach 100 (the cap)."
+            "**A - Base Institutional Weight** reflects ownership and SDN proximity. "
+            "Weights: Reliance=0, IOCL=1, BPCL=2, HPCL=2, Nayara=4. "
+            "Nayara scores highest because Rosneft (~49% owner) is on the OFAC SDN list, "
+            "making every Nayara transaction structurally proximate to a sanctioned entity.\n\n"
+            "**B - Russian Share** is simply the fraction of crude sourced from Russia. "
+            "Higher share = larger transaction surface area exposed to sanctions risk.\n\n"
+            "**C - Sanction Environment:** Low (1.0) = normal; Medium (1.5) = policy shift / advisories; "
+            "High (3.0) = active enforcement. Medium is 1.5 not 2.0 - a policy signal is a smaller step than an enforcement action.\n\n"
+            "**D - Urals Pressure Amplifier:** A large Urals discount signals compliant buyers are avoiding Russian crude. "
+            "OMCs still buying face higher scrutiny. Ranges from 1.0 (no discount) to 1.5 (at the $15 ceiling, "
+            "which is the 90th percentile of observed FY25-26 discounts).\n\n"
+            "**x 25** maps the raw decimal output to a readable 0-100 scale."
         )
 
         st.markdown("---")
@@ -738,30 +697,14 @@ with tab_formulas:
             language=None
         )
         st.markdown(
-            "**What each sub-score measures:**\n\n"
-            "**Oil score (weight 25%)** - sensitivity to crude price movements. Scale: Low=1, Medium=2, High=3.\n"
-            "Assigned based on the OMC's refining margin exposure. IOCL is Medium because its large throughput "
-            "and diverse product slate give it more pricing power. BPCL and HPCL are High because their margins "
-            "are thinner relative to crude exposure.\n\n"
-            "**FX score (weight 20%)** - sensitivity to USD/INR movements. Same 1/2/3 scale. All PSU OMCs are "
-            "High because they import in USD and sell in INR - a weaker rupee directly expands working capital "
-            "with no natural hedge. Reliance and Nayara are Medium because significant export revenues in USD "
-            "provide a partial natural hedge.\n\n"
-            "**Russia score (weight 20%)** - structural exposure to Russian supply chains.\n"
-            "- Greater than 50% Russian share = 4 (majority of supply from a single sanctioned origin)\n"
-            "- Greater than 30% Russian share = 3\n"
-            "- 30% or less = 2\n\n"
-            "This is separate from OFAC score - it captures supply disruption risk "
-            "(what if Russian supply is suddenly unavailable?) rather than sanctions compliance risk.\n\n"
-            "**OFAC / 25 (weight 35%)** - normalises the 0-100 OFAC score back to a 0-4 scale so it is "
-            "comparable with the other sub-scores (all on a 1-4 scale). OFAC gets the highest weight (35%) "
-            "because it represents a binary cliff risk: an OFAC enforcement action can halt all transactions "
-            "immediately, whereas oil price and FX risks are continuous and hedgeable.\n\n"
-            "**Why these weights?**\n"
-            "- OFAC 35%: enforcement is non-linear - a designation stops business entirely, not just raises costs.\n"
-            "- Oil 25%: significant but manageable through pricing pass-through (GoI APM pricing buffers PSUs).\n"
-            "- Russia supply 20%: OMC can switch supply over a 3-6 month horizon.\n"
-            "- FX 20%: RBI intervention and forward cover limit worst outcomes."
+            "**Oil score (25%)** - crude price sensitivity. L=1, M=2, H=3. IOCL is Medium (large throughput, diverse slate); "
+            "BPCL and HPCL are High (thinner refining margins).\n\n"
+            "**FX score (20%)** - USD/INR sensitivity. PSU OMCs are High (import in USD, sell in INR, no natural hedge). "
+            "Reliance and Nayara are Medium (USD export revenues provide partial hedge).\n\n"
+            "**Russia score (20%)** - supply concentration risk. >50% share = 4; >30% = 3; else = 2. "
+            "Separate from OFAC - captures supply disruption risk if Russian volumes are suddenly unavailable.\n\n"
+            "**OFAC / 25 (35%)** - highest weight because OFAC enforcement is a binary cliff: "
+            "a designation can halt all transactions immediately. Oil and FX risks are continuous and hedgeable; OFAC is not."
         )
 
 # ─────────────────────────────────────────────
