@@ -723,18 +723,17 @@ min( …, 100 ) = hard cap so no entity exceeds 100""", language=None)
 
         st.markdown(f"""
 ---
-**What each component measures — in plain English:**
+**What each component measures :**
 
-**A · Base Institutional Weight** (fixed; reflects ownership and SDN proximity)
+**A · Base Institutional Weight**
 
-| OMC | A | Why |
+| OMC | A | 
 |---|---|---|
-| Reliance | **0** | Negligible Russian crude (~5%); no SDN-adjacent ownership |
-| IOCL | **1** | PSU; ~38% Russian crude; no SDN-adjacent owner; government policy provides a buffer |
-| BPCL | **2** | PSU; ~37% Russian crude; higher weight than IOCL due to larger absolute transaction volume sensitivity |
-| HPCL | **2** | Same rationale as BPCL |
-| Nayara | **4** | Rosneft owns ~49% of Nayara. Rosneft is on the OFAC SDN list. Any transaction involving Nayara is structurally proximate to a sanctioned entity, regardless of the purpose of the transaction. |
-
+| Reliance | **0** | 
+| IOCL | **1** | 
+| BPCL | **2** | 
+| HPCL | **2** | 
+| Nayara | **4** | 
 **B · Russian Share** — straightforward percentage. The more Russian crude an OMC buys, the more transactions potentially touch sanctioned supply chains. Nayara at 82.5% has ~2× the surface area of IOCL at 38.5%.
 
 **C · Sanction Environment Multiplier** — how aggressively OFAC is currently enforcing:
@@ -747,8 +746,6 @@ min( …, 100 ) = hard cap so no entity exceeds 100""", language=None)
 **D · Urals Pressure Amplifier** — why does the Urals discount affect OFAC risk?
 
 A large discount on Urals crude signals that **compliant buyers are avoiding Russian crude**. Russia can only sell at a steep discount because sanctioned entities or sanctions-adjacent intermediaries are the only willing buyers. An OMC that continues buying at a large discount is therefore:
-1. Operating in a market where its counterparties are increasingly under scrutiny, and
-2. Visibly benefiting from sanctions pressure in a way that attracts regulatory attention.
 
 The amplifier goes from **1.0 at $0 discount** (no signal) to **1.5 at the $15 ceiling** (50% additional scrutiny pressure). The $15 ceiling is the **90th percentile of observed FY25–26 discounts** — beyond this level the discount is in genuinely extreme territory.
 
@@ -788,33 +785,7 @@ Rating thresholds:
   Medium     ≥ 1.8
   Low        < 1.8""", language=None)
         st.markdown(f"""
-**What each sub-score measures:**
 
-**Oil score** (weight 25%) — sensitivity to crude price movements.
-- Low=1, Medium=2, High=3.
-- Assigned based on the OMC's refining margin exposure and how much of its cost base is directly crude-linked.
-- IOCL is Medium (M) because its large throughput and diverse product slate give it more pricing power. BPCL and HPCL are High (H) because their margins are thinner relative to crude exposure.
-
-**FX score** (weight 20%) — sensitivity to USD/INR movements.
-- Same 1/2/3 scale.
-- All PSU OMCs are High because they import entirely in USD and sell in INR — a weaker rupee directly expands their working capital requirement with no natural hedge.
-- Reliance and Nayara are Medium because they have significant export revenues in USD, providing a partial natural hedge.
-
-**Russia score** (weight 20%) — structural exposure to Russian supply chains.
-- >50% Russian share → 4 (Very High: majority of supply is from a single sanctioned origin)
-- >30% Russian share → 3 (High: significant concentration)
-- ≤30% → 2 (Medium: manageable exposure)
-- This is separate from the OFAC score — it captures **supply disruption risk** (what if Russia supply is suddenly unavailable?) rather than sanctions compliance risk.
-
-**OFAC ÷ 25** (weight 35%) — normalises the 0–100 OFAC score back to a 0–4 scale so it is comparable with the other sub-scores (which are all on a 1–4 scale).
-- OFAC gets the **highest weight (35%)** because it represents a **binary cliff risk**: an OFAC enforcement action can halt all transactions with an entity immediately, whereas oil price and FX risks are continuous and hedgeable.
-
-**Why these weights?**
-- OFAC at 35%: highest because enforcement is non-linear — a designation stops business entirely, not just raises costs.
-- Oil at 25%: significant but manageable through pricing pass-through (GoI subsidy mechanism and APM pricing provide partial buffers for PSUs).
-- Russia supply at 20%: important but the OMC retains the ability to switch supply over a 3–6 month horizon.
-- FX at 20%: important but RBI intervention and forward cover limit the worst outcomes.
-""")
 
 # ─────────────────────────────────────────────
 # TAB 5 · RISK RANKING
