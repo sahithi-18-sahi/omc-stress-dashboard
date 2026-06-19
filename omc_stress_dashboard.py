@@ -1,7 +1,7 @@
 """
 OMC Transaction Banking Stress Model
  India Oil Marketing Companies · FY25–26
-Updated with data-derived weights, correlation analytics, Urals factor justification
+Updated with simplified OFAC formula, detailed plain-English explanations
 Run: streamlit run omc_stress_dashboard.py
 """
 
@@ -94,13 +94,37 @@ SCENARIOS = {
 }
 BASE = {"brent": 75, "fx": 85.0, "urals": 5}
 OFAC_LABELS = ["Low", "Medium", "High"]
-OFAC_MULT   = [1.0, 1.8, 3.0]
 PALETTE = ["#378add", "#1d9e75", "#ef9f27", "#534ab7", "#d85a30"]
 
+# ─── Risk weights (Overall Risk Score) ───────
 W_OIL  = 0.25
 W_FX   = 0.20
 W_RU   = 0.20
 W_OFAC = 0.35
+
+# ─── OFAC score constants ─────────────────────
+# Sanction-environment multiplier: how much the regulatory climate
+# amplifies exposure on top of baseline structural exposure.
+#   Low    = 1.0  → no current enforcement escalation
+#   Medium = 1.5  → policy shift / advisory warnings (not enforcement)
+#   High   = 3.0  → active enforcement; correspondent banks pulling back
+OFAC_ENV = [1.0, 1.5, 3.0]
+
+# Urals discount ceiling: $15 is the 90th-percentile of observed
+# FY25–26 discounts. Beyond this level the discount signals acute
+# sanctions pressure (i.e. Russia can only sell at deeply punitive
+# prices because compliant counterparties are avoiding it).
+URALS_CEIL = 15.0
+
+# Base institutional exposure weight per OMC —
+# reflects ownership structure and % of Russian crude routed
+# through sanctioned/SDN-adjacent entities.
+#   IOCL  = 1  (no SDN-adjacent owner; PSU but diversified supply)
+#   BPCL  = 2  (PSU; ~36% Russian crude; government policy buffer)
+#   HPCL  = 2  (similar to BPCL)
+#   Nayara= 4  (Rosneft ~49% owner; Rosneft is on OFAC SDN list;
+#               every Nayara transaction is OFAC-proximate)
+BASE_WEIGHT = {"iocl": 1, "bpcl": 2, "hpcl": 2, "ril": 0, "nayara": 4}
 
 OMC = [
     {"id":"iocl",   "name":"IOCL",     "throughput":71.56, "russianShare":0.385, "oilR":"M","fxR":"H","ofacW":1},
@@ -111,9 +135,6 @@ OMC = [
 ]
 PSU      = OMC[:3]
 OFAC_SET = [OMC[0], OMC[1], OMC[2], OMC[4]]
-
-URALS_CEIL = 15.0
-OFAC_ROUTING_MAX  = 0.50   # max OFAC risk amplification at ceiling discount
 
 # ─────────────────────────────────────────────
 # CORE FORMULAE
@@ -137,10 +158,45 @@ def fx_income(o, brent, fx, urals):
 def fee_income(bill):
     return round(bill * 0.0015)
 
+# ─────────────────────────────────────────────
+# SIMPLIFIED OFAC SCORE
+# ─────────────────────────────────────────────
+# Three components, multiplied together, capped at 100:
+#
+#   A = Base Institutional Exposure  (0–4 scale, fixed per OMC)
+#       Reflects ownership and structural SDN proximity.
+#
+#   B = Russian Share Factor  (0–1 scale = the % itself)
+#       The larger the share of Russian crude, the larger the
+#       surface area of transactions that could breach sanctions.
+#
+#   C = Sanction Environment Multiplier  (1.0 / 1.5 / 3.0)
+#       How aggressively OFAC is currently enforcing.
+#       Low=1.0 (normal), Medium=1.5 (policy shift), High=3.0 (active enforcement)
+#
+#   D = Urals Pressure Amplifier  (1.0 → 1.5 as discount rises)
+#       A large Urals discount (Russia selling cheap) signals that
+#       compliant buyers are avoiding Russian crude. Those still
+#       buying face higher scrutiny. Capped at the observed $15 ceiling.
+#       D = 1 + (min(Urals, $15) / $15) × 0.50
+#       At Urals=$0  → D = 1.00  (no extra pressure)
+#       At Urals=$15 → D = 1.50  (50% higher scrutiny pressure)
+#
+#   Raw score = A × B × C × D × 25   (×25 maps to 0–100 scale)
+#   Final      = min(Raw, 100)
+#
+# Scale calibration (×25):
+#   Nayara worst case: A=4, B=0.825, C=3.0, D=1.5 → 4×0.825×3.0×1.5×25 = 371.25 → capped 100
+#   IOCL base case:    A=1, B=0.385, C=1.0, D=1.0 → 1×0.385×1.0×1.0×25 = 9.6  (low, realistic)
+#   BPCL moderate:     A=2, B=0.365, C=1.5, D=1.33→ 2×0.365×1.5×1.33×25 = 36.4 (medium)
+
 def ofac_score(o, ofac_v, urals):
-    mult = OFAC_MULT[ofac_v]
-    uf   = 1 + (min(urals, URALS_CEIL) / URALS_CEIL) * OFAC_ROUTING_MAX
-    return min(100, round(o["ofacW"] * o["russianShare"] * mult * uf * 12))
+    A = o["ofacW"]                                        # Base institutional weight
+    B = o["russianShare"]                                 # Russian share (0–1)
+    C = OFAC_ENV[ofac_v]                                  # Sanction environment multiplier
+    D = 1 + (min(urals, URALS_CEIL) / URALS_CEIL) * 0.50 # Urals pressure amplifier
+    raw = A * B * C * D * 25
+    return min(100, round(raw))
 
 def overall_risk(o, ofac_v, urals):
     oil_s = {"M": 2, "H": 3, "L": 1}.get(o["oilR"], 2)
@@ -428,7 +484,6 @@ R² = {OLS_R2:.4f}  ({OLS_R2*100:.1f}% of IB return variation explained, 24 mont
 | Urals returns | **{OLS_BETA[3]:.4f}** | **{VAR_CONTRIB['Urals']*100:.1f}%** |
 """)
 
-        # ── β and STD deep-dive ──────────────────────────
         st.markdown("---")
         st.markdown("##### How β and Variance Contribution are computed — step by step")
 
@@ -440,10 +495,10 @@ R² = {OLS_R2:.4f}  ({OLS_R2*100:.1f}% of IB return variation explained, 24 mont
 |---|---|---|
 | β₀ (intercept) | **{OLS_BETA[0]:.4f}** | Baseline drift each month (negligible) |
 | β₁ Brent | **{OLS_BETA[1]:+.4f}** | Brent rises 1% → Indian Basket rises **{OLS_BETA[1]*100:.2f}%** |
-| β₂ FX (USD/INR) | **{OLS_BETA[2]:+.4f}** | Rupee depreciates 1% → Indian Basket rises **{abs(OLS_BETA[2])*100:.2f}%** (negative sign: FX_return is positive when rupee weakens, but that raises import cost) |
+| β₂ FX (USD/INR) | **{OLS_BETA[2]:+.4f}** | Rupee depreciates 1% → Indian Basket rises **{abs(OLS_BETA[2])*100:.2f}%** |
 | β₃ Urals | **{OLS_BETA[3]:+.4f}** | Urals rises 1% → Indian Basket falls **{abs(OLS_BETA[3])*100:.2f}%** (Urals rising = smaller discount = costlier Russian crude) |
 
-R² = **{OLS_R2*100:.1f}%** — these three variables together explain {OLS_R2*100:.1f}% of all Indian Basket monthly return variation (24 months of prices → 23 monthly returns).
+R² = **{OLS_R2*100:.1f}%** — these three variables together explain {OLS_R2*100:.1f}% of all Indian Basket monthly return variation.
 """)
 
         with st.expander("Step 2 — What is STD (standard deviation)?", expanded=True):
@@ -451,7 +506,7 @@ R² = **{OLS_R2*100:.1f}%** — these three variables together explain {OLS_R2*1
             _sf_val = np.std(FX_R)
             _su_val = np.std(URALS_R)
             st.markdown(f"""
-STD measures **how much each variable actually swings** month to month across your 23 observations.
+STD measures **how much each variable actually swings** month to month across 23 observations.
 
 | Variable | STD | Meaning |
 |---|---|---|
@@ -486,7 +541,7 @@ STD measures **how much each variable actually swings** month to month across yo
             vu = abs(OLS_BETA[3]) * _su_val
             tot = vb + vf + vu
             st.markdown(f"""
-This is the key step. Multiply β by how much the variable actually moves:
+Multiply β by how much the variable actually moves:
 
 ```
 Brent:  |{OLS_BETA[1]:.4f}| × {_sb_val:.4f} = {vb:.6f}  →  {vb/tot*100:.1f}%
@@ -496,14 +551,11 @@ Urals:  |{OLS_BETA[3]:.4f}| × {_su_val:.4f} = {vu:.6f}  →  {vu/tot*100:.1f}%
 Total:                              {tot:.6f}  →  100.0%
 ```
 
-**Why FX drops from β={abs(OLS_BETA[2]):.2f} to only {vf/tot*100:.1f}% contribution:**
-The rupee STD is only {_sf_val*100:.2f}% — it barely moves month to month. A large β on a variable that never moves still produces near-zero impact.
+**Why FX drops from β={abs(OLS_BETA[2]):.2f} to only {vf/tot*100:.1f}%:** The rupee STD is only {_sf_val*100:.2f}% — it barely moves month to month.
 
-**Why Urals reaches {vu/tot*100:.1f}% despite β={abs(OLS_BETA[3]):.4f}:**
-Urals STD is {_su_val*100:.2f}% — nearly 2× more volatile than Brent. The small β gets multiplied by a very large swing.
+**Why Urals reaches {vu/tot*100:.1f}% despite β={abs(OLS_BETA[3]):.4f}:** Urals STD is {_su_val*100:.2f}% — nearly 2× more volatile than Brent.
 
-**Why Brent dominates at {vb/tot*100:.1f}%:**
-It has BOTH the largest β ({OLS_BETA[1]:.4f}) AND large monthly swings ({_sb_val*100:.2f}% STD).
+**Why Brent dominates at {vb/tot*100:.1f}%:** It has BOTH the largest β ({OLS_BETA[1]:.4f}) AND large monthly swings ({_sb_val*100:.2f}% STD).
 """)
             fig_vc = go.Figure()
             fig_vc.add_trace(go.Bar(
@@ -530,7 +582,7 @@ It has BOTH the largest β ({OLS_BETA[1]:.4f}) AND large monthly swings ({_sb_va
             )
             st.plotly_chart(fig_vc, use_container_width=True)
 
-        with st.expander("Monthly Returns Table — raw data behind the regression (24 months prices → 23 returns)", expanded=False):
+        with st.expander("Monthly Returns Table — raw data behind the regression", expanded=False):
             ret_months_labels = ["May-24","Jun-24","Jul-24","Aug-24","Sep-24","Oct-24",
                                  "Nov-24","Dec-24","Jan-25","Feb-25","Mar-25","Apr-25",
                                  "May-25","Jun-25","Jul-25","Aug-25","Sep-25","Oct-25",
@@ -553,7 +605,7 @@ It has BOTH the largest β ({OLS_BETA[1]:.4f}) AND large monthly swings ({_sb_va
             fig = go.Figure()
             fig.add_trace(go.Bar(x=MONTHS, y=DISC, marker_color=disc_colors, name="Brent–Urals Discount"))
             fig.add_hline(y=DISC_STATS["p90_pos"], line_dash="dash", line_color="#e24b4a",
-                          annotation_text=f"90th pctile=${DISC_STATS['p90_pos']:.1f} → model ceiling=15",
+                          annotation_text=f"90th pctile=${DISC_STATS['p90_pos']:.1f} → model ceiling=$15",
                           annotation_position="top right")
             fig.add_hline(y=0, line_color="#888", line_width=1)
             fig.update_layout(height=320, margin=dict(t=30,b=60,l=10,r=10),
@@ -582,58 +634,187 @@ It has BOTH the largest β ({OLS_BETA[1]:.4f}) AND large monthly swings ({_sb_va
 # TAB 4 · FORMULAS
 # ─────────────────────────────────────────────
 with tab_formulas:
-    formulas = [
-        ("1 · Import Bill (₹ Cr / month)",
-         "Monthly barrels    = (Throughput MMT ÷ 12) × 7,330,000\n"
-         "Russian barrels    = Monthly barrels × Russian share %\n"
-         "Russian price      = max(Brent − Urals discount, $20)\n"
-         "Import USD         = (Russian barrels × Russian price) + (Other barrels × Brent)\n"
-         "Import Bill (₹ Cr) = Import USD × USD/INR ÷ 10,000,000",
-         f"Floor of $20/bbl prevents negative prices. 1 MMT = 7.33 mn barrels (PPAC standard). "
-         f"OLS confirms β_Brent = {OLS_BETA[1]:.3f} (near unit-elasticity)."),
 
-        ("2 · Working Capital Stress (₹ Cr / month)",
-         "WC Stress = Import Bill (current) − Import Bill (base: $75 Brent / ₹85 FX / $5 Urals)",
-         "Positive = additional LC headroom required vs normal operations."),
+    # ── Formula 1 ──────────────────────────────
+    with st.expander("1 · Import Bill (₹ Cr / month)", expanded=True):
+        st.code("""Monthly barrels    = (Throughput MMT ÷ 12) × 7,330,000
+Russian barrels    = Monthly barrels × Russian share %
+Non-Russian barrels= Monthly barrels × (1 − Russian share %)
+Russian price      = max(Brent − Urals discount, $20)
+Import USD         = (Russian barrels × Russian price)
+                   + (Non-Russian barrels × Brent)
+Import Bill (₹ Cr) = Import USD × USD/INR ÷ 10,000,000""", language=None)
+        st.markdown(f"""
+**Why each piece?**
 
-        ("3 · FX Income (₹ Cr / month)",
-         "FX Income = Total Import USD × 0.05% spread × USD/INR ÷ 10,000,000",
-         f"5 bps on USD/INR settlement. Returns r(FX, Indian Basket) = {RET_CORR.loc['USD/INR','Indian Basket']:.3f}. "
-         f"FX amplifies oil stress (β_FX = 0.778 on import bill)."),
+- **1 MMT = 7.33 million barrels** — PPAC standard conversion factor for crude oil.
+- **÷ 12** — converts annual throughput to a single month.
+- **Russian share** — each OMC imports a different proportion of Russian Urals crude. Russian crude is priced at a discount to Brent; non-Russian crude is priced at Brent.
+- **max(Brent − Urals, $20)** — the $20 floor prevents the formula producing an absurd negative price if Urals discount ever exceeds Brent (never observed but mathematically possible).
+- **÷ 10,000,000** — converts raw USD to ₹ Crore (1 Cr = 10 million). The USD figure is multiplied by the FX rate first to get INR, then divided by 10 million.
+- **OLS confirms** β_Brent = {OLS_BETA[1]:.3f} — near unit-elasticity, meaning a 1% rise in Brent raises the import bill by approximately 1%.
+""")
 
-        ("4 · Fee Income (₹ Cr / month)",
-         "Fee Income = Import Bill (₹ Cr) × 0.15%",
-         "LC issuance + BG commission + trade finance at 0.15%/month (~1.8% p.a.). "
-         "Scales directly with import bill — effectively Brent-driven."),
+    # ── Formula 2 ──────────────────────────────
+    with st.expander("2 · Working Capital Stress (₹ Cr / month)", expanded=True):
+        st.code("""WC Stress = Import Bill (current scenario)
+          − Import Bill (base: Brent=$75 · FX=₹85 · Urals=$5)""", language=None)
+        st.markdown("""
+**Why this matters:**
 
-        ("5 · OFAC Exposure Score (0–100)",
-         "OFAC multiplier            : Low=1.0 | Medium=1.8 | High=3.0\n\n"
-         "OFAC_ROUTING_SENSITIVITY   = 0.50   ← independently set; measures compliance risk\n"
-         "                                       from SNRR routing, NOT volume of routing\n"
-         "                                       (each SNRR txn needs individual OFAC screening;\n"
-         "                                        compliance cost >> float income if flagged)\n\n"
-         "URALS_CEIL                 = $15    ← data-derived ceiling (90th pctile of FY25-26)\n\n"
-         "Urals routing factor       = 1 + min(Urals, $15) / $15 × 0.50\n"
-         "                           = 1 + min(Urals, 15) / 15 × 0.50\n\n"
-         "Score = min(Base weight × Russian share × OFAC mult × Urals factor × 12, 100)\n\n"
-         "Base weights: IOCL=1 | BPCL=2 | HPCL=2 | Nayara=4\n"
-         "Medium=1.8 (not 2.0): policy shift, not enforcement action",
-         "OFAC_ROUTING_SENSITIVITY (0.50) measures regulatory consequence of routing, not volume. "
-         "Nayara weight=4 → Rosneft (~49%) is SDN-adjacent; any transaction is OFAC-proximate."),
+- The base scenario ($75 Brent, ₹85 FX, $5 Urals discount) represents a "normal" operating environment derived from FY24 averages.
+- A **positive** WC Stress means the OMC needs more working capital (larger LC lines, more cash collateral) than it would in normal times.
+- A **negative** number means the scenario is actually cheaper than base — the OMC needs less LC headroom.
+- Banks use this to pre-approve additional LC headroom before a stress event materialises, not after.
+""")
 
-        ("6 · Overall Risk Score — DATA-DERIVED WEIGHTS",
-         "Score = Oil(0.25) + FX(0.20) + Russia(0.20) + (OFAC÷25)(0.35)\n\n"
-         f"Regression-derived raw: Brent {VAR_CONTRIB['Brent']*100:.1f}% | "
-         f"FX {VAR_CONTRIB['FX']*100:.1f}% | Urals {VAR_CONTRIB['Urals']*100:.1f}% | OFAC 0%\n\n"
-         "Russia category: >50% → 4 | >30% → 3 | else → 2\n"
-         "Rating thresholds: VH≥3.2 | H≥2.5 | M≥1.8 | L<1.8",
-         f"R²={OLS_R2*100:.1f}% from OLS (24 months prices → 23 returns)."),
-    ]
+    # ── Formula 3 ──────────────────────────────
+    with st.expander("3 · FX Income (₹ Cr / month)", expanded=True):
+        st.code("""FX Income = Total Import USD × 0.05% spread × USD/INR ÷ 10,000,000
 
-    for title, eq, note in formulas:
-        with st.expander(title, expanded=True):
-            st.code(eq, language=None)
-            st.caption(note)
+Where Total Import USD = (Russian barrels × Russian price)
+                       + (Non-Russian barrels × Brent)""", language=None)
+        st.markdown(f"""
+**Why each piece?**
+
+- **0.05% (5 bps)** — this is the bank's FX settlement spread. Every dollar the OMC needs to pay for crude is converted through the bank at a margin. 5 bps is a standard wholesale FX spread for large PSU clients.
+- **Total Import USD** — uses the same dollar value computed in the Import Bill formula. The bank earns its spread on every dollar that flows through it.
+- **× USD/INR ÷ 10,000,000** — converts to ₹ Crore exactly as in the Import Bill formula.
+- **Relationship to oil price:** When Brent is high, the dollar import value is large, so FX income rises with oil — this is a natural hedge for the bank. The returns correlation r(FX, Indian Basket) = {RET_CORR.loc['USD/INR','Indian Basket']:.3f} confirms this linkage.
+""")
+
+    # ── Formula 4 ──────────────────────────────
+    with st.expander("4 · Fee Income (₹ Cr / month)", expanded=True):
+        st.code("""Fee Income = Import Bill (₹ Cr) × 0.15%""", language=None)
+        st.markdown("""
+**Why 0.15%?**
+
+- This 15 basis point rate represents the blended monthly income from three trade finance products the bank earns on each OMC relationship:
+  - **LC issuance fee** — charged when the bank opens a Letter of Credit guaranteeing payment to the oil seller.
+  - **Bank Guarantee commission** — charged for guaranteeing the OMC's performance obligations.
+  - **Trade finance processing** — documentation, discrepancy handling, amendment fees.
+- 0.15%/month equates to ~1.8% per annum, which is the typical all-in fee rate for PSU OMC trade finance mandates in India.
+- **Directly Brent-driven:** Because fee income is a fixed % of the import bill, and the import bill rises with Brent, fee income is effectively an oil-price-linked revenue line for the bank.
+""")
+
+    # ── Formula 5 · OFAC ───────────────────────
+    with st.expander("5 · OFAC Exposure Score (0–100) — Simplified", expanded=True):
+        # Live worked example for currently selected scenario
+        _ex_nayara = OMC[4]
+        _ex_iocl   = OMC[0]
+        _A_n = _ex_nayara["ofacW"];  _B_n = _ex_nayara["russianShare"]
+        _A_i = _ex_iocl["ofacW"];    _B_i = _ex_iocl["russianShare"]
+        _C   = OFAC_ENV[ofac_v]
+        _D   = 1 + (min(urals, URALS_CEIL) / URALS_CEIL) * 0.50
+        _raw_n = _A_n * _B_n * _C * _D * 25
+        _raw_i = _A_i * _B_i * _C * _D * 25
+
+        st.code("""Score = min( A × B × C × D × 25 , 100 )
+
+A = Base Institutional Weight   (fixed per OMC; see table below)
+B = Russian Share               (fraction of total crude that is Russian, 0–1)
+C = Sanction Environment        (Low=1.0 · Medium=1.5 · High=3.0)
+D = Urals Pressure Amplifier    (1.0 → 1.5 as Urals discount rises from $0 → $15)
+
+D = 1 + ( min(Urals discount, $15) / $15 ) × 0.50
+
+× 25 = scaling factor to map the result to a 0–100 range
+min( …, 100 ) = hard cap so no entity exceeds 100""", language=None)
+
+        st.markdown(f"""
+---
+**What each component measures — in plain English:**
+
+**A · Base Institutional Weight** (fixed; reflects ownership and SDN proximity)
+
+| OMC | A | Why |
+|---|---|---|
+| Reliance | **0** | Negligible Russian crude (~5%); no SDN-adjacent ownership |
+| IOCL | **1** | PSU; ~38% Russian crude; no SDN-adjacent owner; government policy provides a buffer |
+| BPCL | **2** | PSU; ~37% Russian crude; higher weight than IOCL due to larger absolute transaction volume sensitivity |
+| HPCL | **2** | Same rationale as BPCL |
+| Nayara | **4** | Rosneft owns ~49% of Nayara. Rosneft is on the OFAC SDN list. Any transaction involving Nayara is structurally proximate to a sanctioned entity, regardless of the purpose of the transaction. |
+
+**B · Russian Share** — straightforward percentage. The more Russian crude an OMC buys, the more transactions potentially touch sanctioned supply chains. Nayara at 82.5% has ~2× the surface area of IOCL at 38.5%.
+
+**C · Sanction Environment Multiplier** — how aggressively OFAC is currently enforcing:
+- **Low (1.0):** Normal environment; OFAC advisories in place but no active enforcement against Indian buyers.
+- **Medium (1.5):** Policy shift — new advisories, secondary-sanction warnings, or pressure on correspondent banks. Not yet enforcement, but compliance cost rises materially.
+- **High (3.0):** Active enforcement — designations of intermediaries, withdrawal of correspondent banks, blocked transactions. Risk is 3× base.
+
+*(Note: Medium is 1.5, not 2.0. The step from Low→Medium is a policy signal; the step from Medium→High is an enforcement action — a much larger jump in real consequence.)*
+
+**D · Urals Pressure Amplifier** — why does the Urals discount affect OFAC risk?
+
+A large discount on Urals crude signals that **compliant buyers are avoiding Russian crude**. Russia can only sell at a steep discount because sanctioned entities or sanctions-adjacent intermediaries are the only willing buyers. An OMC that continues buying at a large discount is therefore:
+1. Operating in a market where its counterparties are increasingly under scrutiny, and
+2. Visibly benefiting from sanctions pressure in a way that attracts regulatory attention.
+
+The amplifier goes from **1.0 at $0 discount** (no signal) to **1.5 at the $15 ceiling** (50% additional scrutiny pressure). The $15 ceiling is the **90th percentile of observed FY25–26 discounts** — beyond this level the discount is in genuinely extreme territory.
+
+```
+D at Urals=$0  : 1 + (0/15) × 0.50  = 1.00   (no amplification)
+D at Urals=$7.5: 1 + (7.5/15) × 0.50 = 1.25  (25% amplification)
+D at Urals=$15 : 1 + (15/15) × 0.50 = 1.50   (50% amplification)
+D at Urals>$15 : capped at $15 in formula → D stays at 1.50
+```
+
+**× 25 — scale calibration:**
+The raw product A×B×C×D produces small decimals (e.g. 1 × 0.385 × 1.0 × 1.0 = 0.385). Multiplying by 25 maps IOCL's base case to ~9.6 (appropriately low) and allows Nayara's severe case to reach 100 (the cap). Without this factor the numbers would sit between 0 and 4, which is hard to interpret.
+
+---
+**Worked example — current scenario ({OFAC_LABELS[ofac_v]} OFAC · Urals=${urals:.1f}/bbl):**
+
+| Step | Nayara | IOCL |
+|---|---|---|
+| A (institutional weight) | {_A_n} | {_A_i} |
+| B (Russian share) | {_B_n:.3f} | {_B_i:.3f} |
+| C (environment) | {_C:.1f} | {_C:.1f} |
+| D (Urals amplifier) | {_D:.3f} | {_D:.3f} |
+| A×B×C×D×25 (raw) | **{_raw_n:.1f}** | **{_raw_i:.1f}** |
+| Final score (capped 100) | **{min(100,round(_raw_n))}** | **{min(100,round(_raw_i))}** |
+""")
+
+    # ── Formula 6 ──────────────────────────────
+    with st.expander("6 · Overall Risk Score", expanded=True):
+        st.code("""Overall Score = (Oil score    × 0.25)
+              + (FX score     × 0.20)
+              + (Russia score × 0.20)
+              + (OFAC÷25      × 0.35)
+
+Rating thresholds:
+  Very High  ≥ 3.2
+  High       ≥ 2.5
+  Medium     ≥ 1.8
+  Low        < 1.8""", language=None)
+        st.markdown(f"""
+**What each sub-score measures:**
+
+**Oil score** (weight 25%) — sensitivity to crude price movements.
+- Low=1, Medium=2, High=3.
+- Assigned based on the OMC's refining margin exposure and how much of its cost base is directly crude-linked.
+- IOCL is Medium (M) because its large throughput and diverse product slate give it more pricing power. BPCL and HPCL are High (H) because their margins are thinner relative to crude exposure.
+
+**FX score** (weight 20%) — sensitivity to USD/INR movements.
+- Same 1/2/3 scale.
+- All PSU OMCs are High because they import entirely in USD and sell in INR — a weaker rupee directly expands their working capital requirement with no natural hedge.
+- Reliance and Nayara are Medium because they have significant export revenues in USD, providing a partial natural hedge.
+
+**Russia score** (weight 20%) — structural exposure to Russian supply chains.
+- >50% Russian share → 4 (Very High: majority of supply is from a single sanctioned origin)
+- >30% Russian share → 3 (High: significant concentration)
+- ≤30% → 2 (Medium: manageable exposure)
+- This is separate from the OFAC score — it captures **supply disruption risk** (what if Russia supply is suddenly unavailable?) rather than sanctions compliance risk.
+
+**OFAC ÷ 25** (weight 35%) — normalises the 0–100 OFAC score back to a 0–4 scale so it is comparable with the other sub-scores (which are all on a 1–4 scale).
+- OFAC gets the **highest weight (35%)** because it represents a **binary cliff risk**: an OFAC enforcement action can halt all transactions with an entity immediately, whereas oil price and FX risks are continuous and hedgeable.
+
+**Why these weights?**
+- OFAC at 35%: highest because enforcement is non-linear — a designation stops business entirely, not just raises costs.
+- Oil at 25%: significant but manageable through pricing pass-through (GoI subsidy mechanism and APM pricing provide partial buffers for PSUs).
+- Russia supply at 20%: important but the OMC retains the ability to switch supply over a 3–6 month horizon.
+- FX at 20%: important but RBI intervention and forward cover limit the worst outcomes.
+""")
 
 # ─────────────────────────────────────────────
 # TAB 5 · RISK RANKING
@@ -691,7 +872,7 @@ with tab_risk:
         if urals >= 15:
             actions.append(("🔴 Urals ≥ $15 ceiling", "Escalate KYC on DMCC intermediaries"))
         elif urals >= 8:
-            actions.append(("🟡 Urals $8–15", "Monitor SNRR routing; check correspondent appetite"))
+            actions.append(("🟡 Urals $8–15", "Monitor routing; check correspondent appetite"))
         if ofac_v >= 2:
             actions.append(("🔴 OFAC High", "Mandatory escalation; hold Nayara disbursements"))
         elif ofac_v == 1:
