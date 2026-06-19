@@ -1,7 +1,6 @@
 """
 OMC Transaction Banking Stress Model
  India Oil Marketing Companies · FY25–26
-Updated with simplified OFAC formula, detailed plain-English explanations
 Run: streamlit run omc_stress_dashboard.py
 """
 
@@ -48,7 +47,6 @@ BRENT_R = pct_ret(BRENT_P)
 DUBAI_R = pct_ret(DUBAI_P)
 FX_R    = pct_ret(FX_P)
 URALS_R = pct_ret(URALS_P)
-RET_MONTHS = MONTHS[1:]
 
 DISC = [b - u for b, u in zip(BRENT_P, URALS_P)]
 
@@ -96,35 +94,19 @@ BASE = {"brent": 75, "fx": 85.0, "urals": 5}
 OFAC_LABELS = ["Low", "Medium", "High"]
 PALETTE = ["#378add", "#1d9e75", "#ef9f27", "#534ab7", "#d85a30"]
 
-# ─── Risk weights (Overall Risk Score) ───────
 W_OIL  = 0.25
 W_FX   = 0.20
 W_RU   = 0.20
 W_OFAC = 0.35
 
-# ─── OFAC score constants ─────────────────────
-# Sanction-environment multiplier: how much the regulatory climate
-# amplifies exposure on top of baseline structural exposure.
-#   Low    = 1.0  → no current enforcement escalation
-#   Medium = 1.5  → policy shift / advisory warnings (not enforcement)
-#   High   = 3.0  → active enforcement; correspondent banks pulling back
+# OFAC environment multiplier
+#   Low=1.0  → normal; no enforcement escalation
+#   Medium=1.5 → policy shift / advisory (not enforcement)
+#   High=3.0 → active enforcement; correspondent banks pulling back
 OFAC_ENV = [1.0, 1.5, 3.0]
 
-# Urals discount ceiling: $15 is the 90th-percentile of observed
-# FY25–26 discounts. Beyond this level the discount signals acute
-# sanctions pressure (i.e. Russia can only sell at deeply punitive
-# prices because compliant counterparties are avoiding it).
+# Urals ceiling = 90th percentile of observed FY25-26 discounts
 URALS_CEIL = 15.0
-
-# Base institutional exposure weight per OMC —
-# reflects ownership structure and % of Russian crude routed
-# through sanctioned/SDN-adjacent entities.
-#   IOCL  = 1  (no SDN-adjacent owner; PSU but diversified supply)
-#   BPCL  = 2  (PSU; ~36% Russian crude; government policy buffer)
-#   HPCL  = 2  (similar to BPCL)
-#   Nayara= 4  (Rosneft ~49% owner; Rosneft is on OFAC SDN list;
-#               every Nayara transaction is OFAC-proximate)
-BASE_WEIGHT = {"iocl": 1, "bpcl": 2, "hpcl": 2, "ril": 0, "nayara": 4}
 
 OMC = [
     {"id":"iocl",   "name":"IOCL",     "throughput":71.56, "russianShare":0.385, "oilR":"M","fxR":"H","ofacW":1},
@@ -158,43 +140,11 @@ def fx_income(o, brent, fx, urals):
 def fee_income(bill):
     return round(bill * 0.0015)
 
-# ─────────────────────────────────────────────
-# SIMPLIFIED OFAC SCORE
-# ─────────────────────────────────────────────
-# Three components, multiplied together, capped at 100:
-#
-#   A = Base Institutional Exposure  (0–4 scale, fixed per OMC)
-#       Reflects ownership and structural SDN proximity.
-#
-#   B = Russian Share Factor  (0–1 scale = the % itself)
-#       The larger the share of Russian crude, the larger the
-#       surface area of transactions that could breach sanctions.
-#
-#   C = Sanction Environment Multiplier  (1.0 / 1.5 / 3.0)
-#       How aggressively OFAC is currently enforcing.
-#       Low=1.0 (normal), Medium=1.5 (policy shift), High=3.0 (active enforcement)
-#
-#   D = Urals Pressure Amplifier  (1.0 → 1.5 as discount rises)
-#       A large Urals discount (Russia selling cheap) signals that
-#       compliant buyers are avoiding Russian crude. Those still
-#       buying face higher scrutiny. Capped at the observed $15 ceiling.
-#       D = 1 + (min(Urals, $15) / $15) × 0.50
-#       At Urals=$0  → D = 1.00  (no extra pressure)
-#       At Urals=$15 → D = 1.50  (50% higher scrutiny pressure)
-#
-#   Raw score = A × B × C × D × 25   (×25 maps to 0–100 scale)
-#   Final      = min(Raw, 100)
-#
-# Scale calibration (×25):
-#   Nayara worst case: A=4, B=0.825, C=3.0, D=1.5 → 4×0.825×3.0×1.5×25 = 371.25 → capped 100
-#   IOCL base case:    A=1, B=0.385, C=1.0, D=1.0 → 1×0.385×1.0×1.0×25 = 9.6  (low, realistic)
-#   BPCL moderate:     A=2, B=0.365, C=1.5, D=1.33→ 2×0.365×1.5×1.33×25 = 36.4 (medium)
-
 def ofac_score(o, ofac_v, urals):
-    A = o["ofacW"]                                        # Base institutional weight
-    B = o["russianShare"]                                 # Russian share (0–1)
-    C = OFAC_ENV[ofac_v]                                  # Sanction environment multiplier
-    D = 1 + (min(urals, URALS_CEIL) / URALS_CEIL) * 0.50 # Urals pressure amplifier
+    A   = o["ofacW"]
+    B   = o["russianShare"]
+    C   = OFAC_ENV[ofac_v]
+    D   = 1 + (min(urals, URALS_CEIL) / URALS_CEIL) * 0.50
     raw = A * B * C * D * 25
     return min(100, round(raw))
 
@@ -220,7 +170,7 @@ def signal_color(level):
 # ─────────────────────────────────────────────
 with st.sidebar:
     st.markdown("### OMC Stress Model")
-    st.caption("Indian OMCs Stress Test model · FY25–26")
+    st.caption("Indian OMCs Stress Test model · FY25-26")
     st.markdown("---")
     st.markdown("**Preset Scenarios**")
     scenario = st.radio("", list(SCENARIOS.keys()), horizontal=True, label_visibility="collapsed")
@@ -240,7 +190,7 @@ with st.sidebar:
     ]), hide_index=True, use_container_width=True)
     st.markdown("---")
     st.markdown("**Signal Thresholds**")
-    st.markdown("🟢 Brent<$80 · FX<84\n\n🟡 Brent $80–100 · FX 84–90\n\n🔴 Brent>$100 · FX>90")
+    st.markdown("Green: Brent<$80, FX<84\n\nAmber: Brent $80-100, FX 84-90\n\nRed: Brent>$100, FX>90")
 
 # ─────────────────────────────────────────────
 # SIGNAL STRIP
@@ -288,33 +238,31 @@ st.markdown(f"""
 # TABS
 # ─────────────────────────────────────────────
 tab_metrics, tab_charts, tab_corr, tab_formulas, tab_risk = st.tabs([
-    "📊 Output Metrics", "📈 Charts",
-    "🔗 Correlation Analysis",
-    "🔢 Formulas", "⚠️ Risk Ranking"
+    "Output Metrics", "Charts", "Correlation Analysis", "Formulas", "Risk Ranking"
 ])
 
 # ── COMPUTE ──────────────────────────────────
-bills   = {o["id"]: import_bill(o, brent, fx, urals)                              for o in OMC}
-bills0  = {o["id"]: import_bill(o, BASE["brent"], BASE["fx"], BASE["urals"])       for o in OMC}
-fx_inc  = {o["id"]: fx_income(o, brent, fx, urals)                                for o in OMC}
-fx_inc0 = {o["id"]: fx_income(o, BASE["brent"], BASE["fx"], BASE["urals"])         for o in OMC}
-fees    = {o["id"]: fee_income(bills[o["id"]])                                     for o in OMC}
-fees0   = {o["id"]: fee_income(bills0[o["id"]])                                    for o in OMC}
-ofacs   = {o["id"]: ofac_score(o, ofac_v, urals)                                  for o in OFAC_SET}
-ofacs0  = {o["id"]: ofac_score(o, 0, BASE["urals"])                                for o in OFAC_SET}
+bills   = {o["id"]: import_bill(o, brent, fx, urals)                        for o in OMC}
+bills0  = {o["id"]: import_bill(o, BASE["brent"], BASE["fx"], BASE["urals"]) for o in OMC}
+fx_inc  = {o["id"]: fx_income(o, brent, fx, urals)                          for o in OMC}
+fx_inc0 = {o["id"]: fx_income(o, BASE["brent"], BASE["fx"], BASE["urals"])   for o in OMC}
+fees    = {o["id"]: fee_income(bills[o["id"]])                               for o in OMC}
+fees0   = {o["id"]: fee_income(bills0[o["id"]])                              for o in OMC}
+ofacs   = {o["id"]: ofac_score(o, ofac_v, urals)                            for o in OFAC_SET}
+ofacs0  = {o["id"]: ofac_score(o, 0, BASE["urals"])                          for o in OFAC_SET}
 
 # ─────────────────────────────────────────────
 # TAB 1 · OUTPUT METRICS
 # ─────────────────────────────────────────────
 with tab_metrics:
-    st.markdown("##### Import Bill — monthly financing need (₹ Cr)")
+    st.markdown("##### Import Bill - monthly financing need (Rs Cr)")
     cols = st.columns(3)
     for i, o in enumerate(PSU):
         d = bills[o["id"]] - bills0[o["id"]]
-        cols[i].metric(o["name"], f'₹{bills[o["id"]]:,} Cr',
+        cols[i].metric(o["name"], f'Rs {bills[o["id"]]:,} Cr',
                        delta=f'{d:+,} Cr vs base', delta_color="inverse")
 
-    st.markdown("##### Working Capital Stress vs Base (₹ Cr/month)")
+    st.markdown("##### Working Capital Stress vs Base (Rs Cr/month)")
     cols = st.columns(3)
     for i, o in enumerate(PSU):
         wc = bills[o["id"]] - bills0[o["id"]]
@@ -322,21 +270,21 @@ with tab_metrics:
 
     st.divider()
 
-    st.markdown("##### FX Income — bank FX settlement revenue (₹ Cr/month)")
+    st.markdown("##### FX Income - bank FX settlement revenue (Rs Cr/month)")
     cols = st.columns(3)
     for i, o in enumerate(PSU):
         d = fx_inc[o["id"]] - fx_inc0[o["id"]]
-        cols[i].metric(o["name"], f'₹{fx_inc[o["id"]]:,} Cr', delta=f'{d:+,} Cr vs base')
+        cols[i].metric(o["name"], f'Rs {fx_inc[o["id"]]:,} Cr', delta=f'{d:+,} Cr vs base')
 
-    st.markdown("##### Fee Income — LC + trade finance fees (₹ Cr/month)")
+    st.markdown("##### Fee Income - LC + trade finance fees (Rs Cr/month)")
     cols = st.columns(3)
     for i, o in enumerate(PSU):
         d = fees[o["id"]] - fees0[o["id"]]
-        cols[i].metric(o["name"], f'₹{fees[o["id"]]:,} Cr', delta=f'{d:+,} Cr vs base')
+        cols[i].metric(o["name"], f'Rs {fees[o["id"]]:,} Cr', delta=f'{d:+,} Cr vs base')
 
     st.divider()
 
-    st.markdown("##### OFAC Exposure Score (0–100)")
+    st.markdown("##### OFAC Exposure Score (0-100)")
     cols = st.columns(4)
     for i, o in enumerate(OFAC_SET):
         d = ofacs[o["id"]] - ofacs0[o["id"]]
@@ -352,15 +300,15 @@ with tab_charts:
     with c1:
         fig = go.Figure(go.Bar(x=[o["name"] for o in OMC],
             y=[bills[o["id"]] for o in OMC], marker_color=PALETTE,
-            text=[f'₹{bills[o["id"]]:,}' for o in OMC], textposition="outside"))
-        fig.update_layout(title="Import Bill (₹ Cr/month)", height=280,
+            text=[f'Rs {bills[o["id"]]:,}' for o in OMC], textposition="outside"))
+        fig.update_layout(title="Import Bill (Rs Cr/month)", height=280,
                           showlegend=False, margin=dict(t=40,b=10,l=10,r=10))
         st.plotly_chart(fig, use_container_width=True)
 
         fig = go.Figure(go.Bar(x=[o["name"] for o in PSU],
             y=[fees[o["id"]] for o in PSU], marker_color=PALETTE[:3],
-            text=[f'₹{fees[o["id"]]}' for o in PSU], textposition="outside"))
-        fig.update_layout(title="Fee Income (₹ Cr/month)", height=280,
+            text=[f'Rs {fees[o["id"]]}' for o in PSU], textposition="outside"))
+        fig.update_layout(title="Fee Income (Rs Cr/month)", height=280,
                           showlegend=False, margin=dict(t=40,b=10,l=10,r=10))
         st.plotly_chart(fig, use_container_width=True)
 
@@ -368,15 +316,15 @@ with tab_charts:
             y=[ofacs[o["id"]] for o in OFAC_SET],
             marker_color=[PALETTE[0],PALETTE[1],PALETTE[2],PALETTE[4]],
             text=[str(ofacs[o["id"]]) for o in OFAC_SET], textposition="outside"))
-        fig.update_layout(title="OFAC Exposure Score (0–100)", height=280,
+        fig.update_layout(title="OFAC Exposure Score (0-100)", height=280,
                           showlegend=False, margin=dict(t=40,b=10,l=10,r=10))
         st.plotly_chart(fig, use_container_width=True)
 
     with c2:
         fig = go.Figure(go.Bar(x=[o["name"] for o in PSU],
             y=[fx_inc[o["id"]] for o in PSU], marker_color=PALETTE[:3],
-            text=[f'₹{fx_inc[o["id"]]}' for o in PSU], textposition="outside"))
-        fig.update_layout(title="FX Income (₹ Cr/month)", height=280,
+            text=[f'Rs {fx_inc[o["id"]]}' for o in PSU], textposition="outside"))
+        fig.update_layout(title="FX Income (Rs Cr/month)", height=280,
                           showlegend=False, margin=dict(t=40,b=10,l=10,r=10))
         st.plotly_chart(fig, use_container_width=True)
 
@@ -384,38 +332,38 @@ with tab_charts:
         fig = go.Figure(go.Bar(x=[o["name"] for o in PSU], y=wc_vals,
             marker_color=["#e24b4a" if v>=0 else "#639922" for v in wc_vals],
             text=[f'{v:+,}' for v in wc_vals], textposition="outside"))
-        fig.update_layout(title="WC Stress vs Base (₹ Cr)", height=280,
+        fig.update_layout(title="WC Stress vs Base (Rs Cr)", height=280,
                           showlegend=False, margin=dict(t=40,b=10,l=10,r=10))
         st.plotly_chart(fig, use_container_width=True)
 
-    st.markdown("##### Scenario Comparison — Import Bill: Base vs Moderate vs Severe")
+    st.markdown("##### Scenario Comparison - Import Bill: Base vs Moderate vs Severe")
     sc4 = [OMC[0], OMC[1], OMC[2], OMC[4]]
     fig = go.Figure()
     for label, s, color in [
-        ("Base ($75/₹85)", SCENARIOS["Base"], "#b5d4f4"),
-        ("Moderate ($90/₹88)", SCENARIOS["Moderate"], "#fac775"),
-        ("Severe ($110/₹92)", SCENARIOS["Severe"], "#f09595"),
+        ("Base ($75/Rs85)", SCENARIOS["Base"], "#b5d4f4"),
+        ("Moderate ($90/Rs88)", SCENARIOS["Moderate"], "#fac775"),
+        ("Severe ($110/Rs92)", SCENARIOS["Severe"], "#f09595"),
     ]:
         fig.add_trace(go.Bar(name=label, x=[o["name"] for o in sc4],
             y=[import_bill(o, s["brent"], s["fx"], s["urals"]) for o in sc4],
             marker_color=color))
     fig.update_layout(barmode="group", height=320,
                       legend=dict(orientation="h", y=-0.2),
-                      margin=dict(t=10,b=10,l=10,r=10), yaxis_title="₹ Cr")
+                      margin=dict(t=10,b=10,l=10,r=10), yaxis_title="Rs Cr")
     st.plotly_chart(fig, use_container_width=True)
 
 # ─────────────────────────────────────────────
 # TAB 3 · CORRELATION ANALYSIS
 # ─────────────────────────────────────────────
 with tab_corr:
-    st.markdown("#### Correlation Analysis — FY25 + FY26 (24 months)")
-    st.caption("Source: PPAC, EIA, RBI, Trading Economics · Compiled in IMPORTS.xlsx workbook")
+    st.markdown("#### Correlation Analysis - FY25 + FY26 (24 months)")
+    st.caption("Source: PPAC, EIA, RBI, Trading Economics")
 
     sub1, sub2 = st.tabs(["Price-Level Correlation", "Returns Correlation"])
 
     with sub1:
         st.markdown("##### Price-Level Correlation Matrix")
-        st.info("⚠️ Price-level correlations are inflated by shared long-term trends. Useful for co-movement direction but can be misleading — use returns correlation for quantitative risk analysis.", icon="📌")
+        st.info("Price-level correlations are inflated by shared long-term trends. Useful for co-movement direction but can be misleading - use returns correlation for quantitative risk analysis.")
 
         labs = list(PRICE_CORR.columns)
         z    = PRICE_CORR.values.tolist()
@@ -429,20 +377,20 @@ with tab_corr:
         with col_a:
             st.markdown("""
 **Key findings:**
-- **Brent ↔ WTI: r ≈ 0.98** — Near-perfect synchronisation
-- **Brent ↔ Indian Basket: r ≈ 0.92** — India's benchmark tracks Brent closely
-- **Brent ↔ Urals: r ≈ 0.86** — Russian crude moves with global benchmarks despite discount
+- **Brent / WTI: r approx 0.98** - Near-perfect synchronisation
+- **Brent / Indian Basket: r approx 0.92** - India benchmark tracks Brent closely
+- **Brent / Urals: r approx 0.86** - Russian crude moves with global benchmarks
 """)
         with col_b:
             st.markdown("""
-- **Brent ↔ USD/INR: r ≈ –0.14** — Negative at price level (spurious trend divergence)
+- **Brent / USD/INR: r approx -0.14** - Negative at price level (spurious trend divergence)
 - **Interpretation:** Price-level correlations carry spurious trend components
-- Use monthly % returns for reliable risk weighting
+- Use monthly returns for reliable risk weighting
 """)
 
     with sub2:
-        st.markdown("##### Returns Correlation Matrix (monthly % changes, 24 months of prices → 23 monthly returns)")
-        st.success("✅ Returns-based correlations remove trend effects — this is the basis for risk weight derivation.", icon="📊")
+        st.markdown("##### Returns Correlation Matrix (monthly % changes, 23 monthly returns)")
+        st.success("Returns-based correlations remove trend effects - this is the basis for risk weight derivation.")
 
         labs_r = list(RET_CORR.columns)
         zr     = RET_CORR.values.tolist()
@@ -456,66 +404,66 @@ with tab_corr:
         with col_a:
             st.markdown(f"""
 **Key findings:**
-- **Brent ↔ Indian Basket: r = {RET_CORR.loc['Brent','Indian Basket']:.3f}** → R² = {RET_CORR.loc['Brent','Indian Basket']**2*100:.1f}% — Brent virtually IS the Indian import benchmark
-- **WTI ↔ Brent: r = {RET_CORR.loc['WTI','Brent']:.3f}** — Near-identical month-to-month
-- **Dubai ↔ Brent: r = {RET_CORR.loc['Dubai','Brent']:.3f}** — Gulf benchmarks co-integrated
+- **Brent / Indian Basket: r = {RET_CORR.loc['Brent','Indian Basket']:.3f}** - R2 = {RET_CORR.loc['Brent','Indian Basket']**2*100:.1f}% - Brent virtually IS the Indian import benchmark
+- **WTI / Brent: r = {RET_CORR.loc['WTI','Brent']:.3f}** - Near-identical month-to-month
+- **Dubai / Brent: r = {RET_CORR.loc['Dubai','Brent']:.3f}** - Gulf benchmarks co-integrated
 """)
         with col_b:
             st.markdown(f"""
-- **USD/INR ↔ Brent: r = {RET_CORR.loc['USD/INR','Brent']:.3f}** → Oil shocks transmit to INR
-- **Urals ↔ Indian Basket: r = {RET_CORR.loc['Urals','Indian Basket']:.3f}** → R² = {RET_CORR.loc['Urals','Indian Basket']**2*100:.1f}%
-- **USD/INR ↔ Indian Basket: r = {RET_CORR.loc['USD/INR','Indian Basket']:.3f}** → Rupee weakens when oil spikes
+- **USD/INR / Brent: r = {RET_CORR.loc['USD/INR','Brent']:.3f}** - Oil shocks transmit to INR
+- **Urals / Indian Basket: r = {RET_CORR.loc['Urals','Indian Basket']:.3f}** - R2 = {RET_CORR.loc['Urals','Indian Basket']**2*100:.1f}%
+- **USD/INR / Indian Basket: r = {RET_CORR.loc['USD/INR','Indian Basket']:.3f}** - Rupee weakens when oil spikes
 """)
 
         st.markdown("---")
         st.markdown("##### OLS Regression: Indian Basket Returns ~ Brent + FX + Urals")
-        st.code(f"""Indian Basket return = {OLS_BETA[0]:.4f}
-  + {OLS_BETA[1]:.4f} × Brent_return
-  + {OLS_BETA[2]:.4f} × FX_return
-  + {OLS_BETA[3]:.4f} × Urals_return
+        st.code(
+            f"Indian Basket return = {OLS_BETA[0]:.4f}\n"
+            f"  + {OLS_BETA[1]:.4f} x Brent_return\n"
+            f"  + {OLS_BETA[2]:.4f} x FX_return\n"
+            f"  + {OLS_BETA[3]:.4f} x Urals_return\n\n"
+            f"R2 = {OLS_R2:.4f}  ({OLS_R2*100:.1f}% of IB return variation explained)",
+            language=None
+        )
 
-R² = {OLS_R2:.4f}  ({OLS_R2*100:.1f}% of IB return variation explained, 24 months prices → 23 returns)""", language=None)
-
-        st.markdown(f"""
-| Variable | β | Variance contribution |
-|---|---|---|
-| Brent returns | **{OLS_BETA[1]:.4f}** | **{VAR_CONTRIB['Brent']*100:.1f}%** |
-| FX (USD/INR) | **{OLS_BETA[2]:.4f}** | **{VAR_CONTRIB['FX']*100:.1f}%** |
-| Urals returns | **{OLS_BETA[3]:.4f}** | **{VAR_CONTRIB['Urals']*100:.1f}%** |
-""")
+        st.markdown(
+            f"| Variable | Beta | Variance contribution |\n"
+            f"|---|---|---|\n"
+            f"| Brent returns | **{OLS_BETA[1]:.4f}** | **{VAR_CONTRIB['Brent']*100:.1f}%** |\n"
+            f"| FX (USD/INR) | **{OLS_BETA[2]:.4f}** | **{VAR_CONTRIB['FX']*100:.1f}%** |\n"
+            f"| Urals returns | **{OLS_BETA[3]:.4f}** | **{VAR_CONTRIB['Urals']*100:.1f}%** |\n"
+        )
 
         st.markdown("---")
-        st.markdown("##### How β and Variance Contribution are computed — step by step")
+        st.markdown("##### How Beta and Variance Contribution are computed - step by step")
 
-        with st.expander("Step 1 — What is β (beta)?", expanded=True):
-            st.markdown(f"""
-β is the OLS coefficient — it answers: *"If this variable rises by 1%, how much does the Indian Basket return change?"*
+        with st.expander("Step 1 - What is Beta?", expanded=True):
+            st.markdown(
+                f"Beta is the OLS coefficient - it answers: if this variable rises by 1%, "
+                f"how much does the Indian Basket return change?\n\n"
+                f"| Variable | Beta | Plain English |\n"
+                f"|---|---|---|\n"
+                f"| Beta0 (intercept) | **{OLS_BETA[0]:.4f}** | Baseline drift each month (negligible) |\n"
+                f"| Beta1 Brent | **{OLS_BETA[1]:+.4f}** | Brent rises 1% - Indian Basket rises **{OLS_BETA[1]*100:.2f}%** |\n"
+                f"| Beta2 FX | **{OLS_BETA[2]:+.4f}** | Rupee depreciates 1% - Indian Basket rises **{abs(OLS_BETA[2])*100:.2f}%** |\n"
+                f"| Beta3 Urals | **{OLS_BETA[3]:+.4f}** | Urals rises 1% - Indian Basket falls **{abs(OLS_BETA[3])*100:.2f}%** |\n\n"
+                f"R2 = **{OLS_R2*100:.1f}%** - these three variables explain {OLS_R2*100:.1f}% of all Indian Basket monthly return variation."
+            )
 
-| Variable | β value | Plain English |
-|---|---|---|
-| β₀ (intercept) | **{OLS_BETA[0]:.4f}** | Baseline drift each month (negligible) |
-| β₁ Brent | **{OLS_BETA[1]:+.4f}** | Brent rises 1% → Indian Basket rises **{OLS_BETA[1]*100:.2f}%** |
-| β₂ FX (USD/INR) | **{OLS_BETA[2]:+.4f}** | Rupee depreciates 1% → Indian Basket rises **{abs(OLS_BETA[2])*100:.2f}%** |
-| β₃ Urals | **{OLS_BETA[3]:+.4f}** | Urals rises 1% → Indian Basket falls **{abs(OLS_BETA[3])*100:.2f}%** (Urals rising = smaller discount = costlier Russian crude) |
-
-R² = **{OLS_R2*100:.1f}%** — these three variables together explain {OLS_R2*100:.1f}% of all Indian Basket monthly return variation.
-""")
-
-        with st.expander("Step 2 — What is STD (standard deviation)?", expanded=True):
+        with st.expander("Step 2 - What is STD (standard deviation)?", expanded=True):
             _sb_val = np.std(BRENT_R)
             _sf_val = np.std(FX_R)
             _su_val = np.std(URALS_R)
-            st.markdown(f"""
-STD measures **how much each variable actually swings** month to month across 23 observations.
-
-| Variable | STD | Meaning |
-|---|---|---|
-| std(Brent returns) | **{_sb_val*100:.4f}%** | Brent moves ±{_sb_val*100:.2f}% per month on average |
-| std(FX returns) | **{_sf_val*100:.4f}%** | Rupee barely moves — only ±{_sf_val*100:.2f}% per month |
-| std(Urals returns) | **{_su_val*100:.4f}%** | Urals is most volatile — swings ±{_su_val*100:.2f}% per month |
-
-**Why STD matters:** A variable with β=0.43 but STD=0.71% barely moves the output. A variable with β=0.05 but STD=19.65% can still matter a lot. β alone is not enough.
-""")
+            st.markdown(
+                f"STD measures how much each variable actually swings month to month.\n\n"
+                f"| Variable | STD | Meaning |\n"
+                f"|---|---|---|\n"
+                f"| std(Brent returns) | **{_sb_val*100:.4f}%** | Brent moves +/-{_sb_val*100:.2f}% per month on average |\n"
+                f"| std(FX returns) | **{_sf_val*100:.4f}%** | Rupee barely moves - only +/-{_sf_val*100:.2f}% per month |\n"
+                f"| std(Urals returns) | **{_su_val*100:.4f}%** | Urals is most volatile - swings +/-{_su_val*100:.2f}% per month |\n\n"
+                f"Why STD matters: A variable with Beta=0.43 but STD=0.71% barely moves the output. "
+                f"A variable with Beta=0.05 but STD=19.65% can still matter a lot. Beta alone is not enough."
+            )
             fig_std = go.Figure(go.Bar(
                 x=["Brent", "FX (USD/INR)", "Urals"],
                 y=[_sb_val*100, _sf_val*100, _su_val*100],
@@ -532,7 +480,7 @@ STD measures **how much each variable actually swings** month to month across 23
             )
             st.plotly_chart(fig_std, use_container_width=True)
 
-        with st.expander("Step 3 — Variance Contribution = |β| × STD", expanded=True):
+        with st.expander("Step 3 - Variance Contribution = |Beta| x STD", expanded=True):
             _sb_val = np.std(BRENT_R)
             _sf_val = np.std(FX_R)
             _su_val = np.std(URALS_R)
@@ -540,26 +488,21 @@ STD measures **how much each variable actually swings** month to month across 23
             vf = abs(OLS_BETA[2]) * _sf_val
             vu = abs(OLS_BETA[3]) * _su_val
             tot = vb + vf + vu
-            st.markdown(f"""
-Multiply β by how much the variable actually moves:
-
-```
-Brent:  |{OLS_BETA[1]:.4f}| × {_sb_val:.4f} = {vb:.6f}  →  {vb/tot*100:.1f}%
-FX:     |{OLS_BETA[2]:.4f}| × {_sf_val:.4f} = {vf:.6f}  →  {vf/tot*100:.1f}%
-Urals:  |{OLS_BETA[3]:.4f}| × {_su_val:.4f} = {vu:.6f}  →  {vu/tot*100:.1f}%
-─────────────────────────────────────────────────────────
-Total:                              {tot:.6f}  →  100.0%
-```
-
-**Why FX drops from β={abs(OLS_BETA[2]):.2f} to only {vf/tot*100:.1f}%:** The rupee STD is only {_sf_val*100:.2f}% — it barely moves month to month.
-
-**Why Urals reaches {vu/tot*100:.1f}% despite β={abs(OLS_BETA[3]):.4f}:** Urals STD is {_su_val*100:.2f}% — nearly 2× more volatile than Brent.
-
-**Why Brent dominates at {vb/tot*100:.1f}%:** It has BOTH the largest β ({OLS_BETA[1]:.4f}) AND large monthly swings ({_sb_val*100:.2f}% STD).
-""")
+            st.code(
+                f"Brent:  |{OLS_BETA[1]:.4f}| x {_sb_val:.4f} = {vb:.6f}  ->  {vb/tot*100:.1f}%\n"
+                f"FX:     |{OLS_BETA[2]:.4f}| x {_sf_val:.4f} = {vf:.6f}  ->  {vf/tot*100:.1f}%\n"
+                f"Urals:  |{OLS_BETA[3]:.4f}| x {_su_val:.4f} = {vu:.6f}  ->  {vu/tot*100:.1f}%\n"
+                f"Total:                              {tot:.6f}  ->  100.0%",
+                language=None
+            )
+            st.markdown(
+                f"**Why FX drops to only {vf/tot*100:.1f}%:** The rupee STD is only {_sf_val*100:.2f}% - it barely moves month to month.\n\n"
+                f"**Why Urals reaches {vu/tot*100:.1f}%:** Urals STD is {_su_val*100:.2f}% - nearly 2x more volatile than Brent.\n\n"
+                f"**Why Brent dominates at {vb/tot*100:.1f}%:** It has BOTH the largest Beta ({OLS_BETA[1]:.4f}) AND large monthly swings ({_sb_val*100:.2f}% STD)."
+            )
             fig_vc = go.Figure()
             fig_vc.add_trace(go.Bar(
-                name="|β| (sensitivity)",
+                name="|Beta| (sensitivity)",
                 x=["Brent", "FX", "Urals"],
                 y=[abs(OLS_BETA[1]), abs(OLS_BETA[2]), abs(OLS_BETA[3])],
                 marker_color=["#b5d4f4", "#a8e6cf", "#fac775"],
@@ -576,216 +519,250 @@ Total:                              {tot:.6f}  →  100.0%
             ))
             fig_vc.update_layout(
                 barmode="group", height=300,
-                title="|β| alone vs actual variance contribution — why they differ",
+                title="|Beta| alone vs actual variance contribution - why they differ",
                 legend=dict(orientation="h", y=-0.25),
                 margin=dict(t=40, b=10, l=10, r=10),
             )
             st.plotly_chart(fig_vc, use_container_width=True)
 
-        with st.expander("Monthly Returns Table — raw data behind the regression", expanded=False):
-            ret_months_labels = ["May-24","Jun-24","Jul-24","Aug-24","Sep-24","Oct-24",
-                                 "Nov-24","Dec-24","Jan-25","Feb-25","Mar-25","Apr-25",
-                                 "May-25","Jun-25","Jul-25","Aug-25","Sep-25","Oct-25",
-                                 "Nov-25","Dec-25","Jan-26","Feb-26","Mar-26"]
+        with st.expander("Monthly Returns Table - raw data behind the regression", expanded=False):
+            ret_months_labels = [
+                "May-24","Jun-24","Jul-24","Aug-24","Sep-24","Oct-24",
+                "Nov-24","Dec-24","Jan-25","Feb-25","Mar-25","Apr-25",
+                "May-25","Jun-25","Jul-25","Aug-25","Sep-25","Oct-25",
+                "Nov-25","Dec-25","Jan-26","Feb-26","Mar-26"
+            ]
             ret_table = pd.DataFrame({
-                "Month":          ret_months_labels,
-                "Brent_r (%)":    [round(v*100, 4) for v in BRENT_R],
-                "IB_r (%)":       [round(v*100, 4) for v in IB_R],
-                "FX_r (%)":       [round(v*100, 4) for v in FX_R],
-                "Urals_r (%)":    [round(v*100, 4) for v in URALS_R],
+                "Month":       ret_months_labels,
+                "Brent_r (%)": [round(v*100, 4) for v in BRENT_R],
+                "IB_r (%)":    [round(v*100, 4) for v in IB_R],
+                "FX_r (%)":    [round(v*100, 4) for v in FX_R],
+                "Urals_r (%)": [round(v*100, 4) for v in URALS_R],
             })
             st.dataframe(ret_table, hide_index=True, use_container_width=True)
-            st.caption("Returns = (Current month price − Previous month price) / Previous month price × 100")
+            st.caption("Returns = (Current month price - Previous month price) / Previous month price x 100")
 
         st.markdown("---")
-        st.markdown("##### Urals Discount Distribution (FY25–FY26, 24 months)")
+        st.markdown("##### Urals Discount Distribution (FY25-FY26, 24 months)")
         col_d1, col_d2 = st.columns([2,1])
         with col_d1:
-            disc_colors = ["#e24b4a" if d > 10 else ("#ef9f27" if d > 5 else ("#378add" if d > 0 else "#888")) for d in DISC]
+            disc_colors = [
+                "#e24b4a" if d > 10 else ("#ef9f27" if d > 5 else ("#378add" if d > 0 else "#888"))
+                for d in DISC
+            ]
             fig = go.Figure()
-            fig.add_trace(go.Bar(x=MONTHS, y=DISC, marker_color=disc_colors, name="Brent–Urals Discount"))
+            fig.add_trace(go.Bar(x=MONTHS, y=DISC, marker_color=disc_colors, name="Brent-Urals Discount"))
             fig.add_hline(y=DISC_STATS["p90_pos"], line_dash="dash", line_color="#e24b4a",
-                          annotation_text=f"90th pctile=${DISC_STATS['p90_pos']:.1f} → model ceiling=$15",
+                          annotation_text=f"90th pctile=${DISC_STATS['p90_pos']:.1f} -> model ceiling=$15",
                           annotation_position="top right")
             fig.add_hline(y=0, line_color="#888", line_width=1)
             fig.update_layout(height=320, margin=dict(t=30,b=60,l=10,r=10),
                               yaxis_title="$/bbl", xaxis_tickangle=-45)
             st.plotly_chart(fig, use_container_width=True)
         with col_d2:
-            st.markdown(f"""
-**Discount Statistics**
-
-| Metric | Value |
-|---|---|
-| Mean (all 24M) | ${DISC_STATS['mean']:.2f} |
-| Max observed | ${DISC_STATS['max_pos']:.2f} |
-| 90th pctile | ${DISC_STATS['p90_pos']:.2f} |
-| 95th pctile | ${DISC_STATS['p95_pos']:.2f} |
-| Positive months | {DISC_STATS['n_pos']}/24 |
-| Inverted months | {DISC_STATS['n_neg']}/24 |
-
-**Model ceiling: $15**
-→ 90th pctile = ${DISC_STATS['p90_pos']:.1f}
-→ Old ceiling $25 = FY22 crisis peak
-→ $15 reflects post-normalisation regime
-""")
+            st.markdown(
+                f"**Discount Statistics**\n\n"
+                f"| Metric | Value |\n"
+                f"|---|---|\n"
+                f"| Mean (all 24M) | ${DISC_STATS['mean']:.2f} |\n"
+                f"| Max observed | ${DISC_STATS['max_pos']:.2f} |\n"
+                f"| 90th pctile | ${DISC_STATS['p90_pos']:.2f} |\n"
+                f"| 95th pctile | ${DISC_STATS['p95_pos']:.2f} |\n"
+                f"| Positive months | {DISC_STATS['n_pos']}/24 |\n"
+                f"| Inverted months | {DISC_STATS['n_neg']}/24 |\n\n"
+                f"**Model ceiling: $15**\n"
+                f"90th pctile = ${DISC_STATS['p90_pos']:.1f}\n"
+                f"Old ceiling $25 = FY22 crisis peak\n"
+                f"$15 reflects post-normalisation regime"
+            )
 
 # ─────────────────────────────────────────────
 # TAB 4 · FORMULAS
 # ─────────────────────────────────────────────
 with tab_formulas:
 
-    # ── Formula 1 ──────────────────────────────
-    with st.expander("1 · Import Bill (₹ Cr / month)", expanded=True):
-        st.code("""Monthly barrels    = (Throughput MMT ÷ 12) × 7,330,000
-Russian barrels    = Monthly barrels × Russian share %
-Non-Russian barrels= Monthly barrels × (1 − Russian share %)
-Russian price      = max(Brent − Urals discount, $20)
-Import USD         = (Russian barrels × Russian price)
-                   + (Non-Russian barrels × Brent)
-Import Bill (₹ Cr) = Import USD × USD/INR ÷ 10,000,000""", language=None)
-        st.markdown(f"""
-**Why each piece?**
+    with st.expander("1 - Import Bill (Rs Cr / month)", expanded=True):
+        st.code(
+            "Monthly barrels     = (Throughput MMT / 12) x 7,330,000\n"
+            "Russian barrels     = Monthly barrels x Russian share %\n"
+            "Non-Russian barrels = Monthly barrels x (1 - Russian share %)\n"
+            "Russian price       = max(Brent - Urals discount, $20)\n"
+            "Import USD          = (Russian barrels x Russian price)\n"
+            "                    + (Non-Russian barrels x Brent)\n"
+            "Import Bill (Rs Cr) = Import USD x USD/INR / 10,000,000",
+            language=None
+        )
+        st.markdown(
+            f"**Why each piece?**\n\n"
+            f"- **1 MMT = 7.33 million barrels** - PPAC standard conversion factor for crude oil.\n"
+            f"- **/ 12** - converts annual throughput to a single month.\n"
+            f"- **Russian share** - each OMC imports a different proportion of Russian Urals crude, "
+            f"priced at a discount to Brent. Non-Russian crude is priced at Brent.\n"
+            f"- **max(Brent - Urals, $20)** - the $20 floor prevents a negative price if the discount "
+            f"ever exceeds Brent (never observed, but mathematically possible).\n"
+            f"- **/ 10,000,000** - converts USD to Rs Crore (1 Cr = 10 million). "
+            f"The USD figure is multiplied by the FX rate first, then divided by 10 million.\n"
+            f"- **OLS confirms** Beta_Brent = {OLS_BETA[1]:.3f} - near unit-elasticity, "
+            f"meaning a 1% rise in Brent raises the import bill by approximately 1%."
+        )
 
-- **1 MMT = 7.33 million barrels** — PPAC standard conversion factor for crude oil.
-- **÷ 12** — converts annual throughput to a single month.
-- **Russian share** — each OMC imports a different proportion of Russian Urals crude. Russian crude is priced at a discount to Brent; non-Russian crude is priced at Brent.
-- **max(Brent − Urals, $20)** — the $20 floor prevents the formula producing an absurd negative price if Urals discount ever exceeds Brent (never observed but mathematically possible).
-- **÷ 10,000,000** — converts raw USD to ₹ Crore (1 Cr = 10 million). The USD figure is multiplied by the FX rate first to get INR, then divided by 10 million.
-- **OLS confirms** β_Brent = {OLS_BETA[1]:.3f} — near unit-elasticity, meaning a 1% rise in Brent raises the import bill by approximately 1%.
-""")
+    with st.expander("2 - Working Capital Stress (Rs Cr / month)", expanded=True):
+        st.code(
+            "WC Stress = Import Bill (current scenario)\n"
+            "          - Import Bill (base: Brent=$75, FX=Rs85, Urals=$5)",
+            language=None
+        )
+        st.markdown(
+            "**Why this matters:**\n\n"
+            "- The base scenario ($75 Brent, Rs85 FX, $5 Urals) represents a normal operating environment derived from FY24 averages.\n"
+            "- A **positive** WC Stress means the OMC needs more working capital (larger LC lines, more cash collateral) than in normal times.\n"
+            "- A **negative** number means the scenario is cheaper than base - the OMC needs less LC headroom.\n"
+            "- Banks use this to pre-approve additional LC headroom before a stress event materialises, not after."
+        )
 
-    # ── Formula 2 ──────────────────────────────
-    with st.expander("2 · Working Capital Stress (₹ Cr / month)", expanded=True):
-        st.code("""WC Stress = Import Bill (current scenario)
-          − Import Bill (base: Brent=$75 · FX=₹85 · Urals=$5)""", language=None)
-        st.markdown("""
-**Why this matters:**
+    with st.expander("3 - FX Income (Rs Cr / month)", expanded=True):
+        st.code(
+            "FX Income = Total Import USD x 0.05% spread x USD/INR / 10,000,000\n\n"
+            "Where Total Import USD = (Russian barrels x Russian price)\n"
+            "                      + (Non-Russian barrels x Brent)",
+            language=None
+        )
+        st.markdown(
+            f"**Why each piece?**\n\n"
+            f"- **0.05% (5 bps)** - the bank's FX settlement spread. Every dollar the OMC pays for crude "
+            f"is converted through the bank at this margin. 5 bps is standard wholesale FX for large PSU clients.\n"
+            f"- **Total Import USD** - same dollar value as in the Import Bill. The bank earns its spread on every dollar that flows through it.\n"
+            f"- **x USD/INR / 10,000,000** - converts to Rs Crore, same as Import Bill formula.\n"
+            f"- **Relationship to oil price:** When Brent is high, dollar import value is large, so FX income rises with oil - "
+            f"a natural hedge for the bank. Returns correlation r(FX, Indian Basket) = {RET_CORR.loc['USD/INR','Indian Basket']:.3f} confirms this."
+        )
 
-- The base scenario ($75 Brent, ₹85 FX, $5 Urals discount) represents a "normal" operating environment derived from FY24 averages.
-- A **positive** WC Stress means the OMC needs more working capital (larger LC lines, more cash collateral) than it would in normal times.
-- A **negative** number means the scenario is actually cheaper than base — the OMC needs less LC headroom.
-- Banks use this to pre-approve additional LC headroom before a stress event materialises, not after.
-""")
+    with st.expander("4 - Fee Income (Rs Cr / month)", expanded=True):
+        st.code("Fee Income = Import Bill (Rs Cr) x 0.15%", language=None)
+        st.markdown(
+            "**Why 0.15%?**\n\n"
+            "This 15 basis point rate is the blended monthly income from three trade finance products:\n\n"
+            "- **LC issuance fee** - charged when the bank opens a Letter of Credit guaranteeing payment to the oil seller.\n"
+            "- **Bank Guarantee commission** - charged for guaranteeing the OMC's performance obligations.\n"
+            "- **Trade finance processing** - documentation, discrepancy handling, amendment fees.\n\n"
+            "0.15%/month = approx 1.8% per annum, which is the typical all-in fee rate for PSU OMC trade finance mandates in India.\n\n"
+            "**Directly Brent-driven:** Fee income is a fixed % of the import bill. Since the import bill rises with Brent, "
+            "fee income is effectively an oil-price-linked revenue line for the bank."
+        )
 
-    # ── Formula 3 ──────────────────────────────
-    with st.expander("3 · FX Income (₹ Cr / month)", expanded=True):
-        st.code("""FX Income = Total Import USD × 0.05% spread × USD/INR ÷ 10,000,000
-
-Where Total Import USD = (Russian barrels × Russian price)
-                       + (Non-Russian barrels × Brent)""", language=None)
-        st.markdown(f"""
-**Why each piece?**
-
-- **0.05% (5 bps)** — this is the bank's FX settlement spread. Every dollar the OMC needs to pay for crude is converted through the bank at a margin. 5 bps is a standard wholesale FX spread for large PSU clients.
-- **Total Import USD** — uses the same dollar value computed in the Import Bill formula. The bank earns its spread on every dollar that flows through it.
-- **× USD/INR ÷ 10,000,000** — converts to ₹ Crore exactly as in the Import Bill formula.
-- **Relationship to oil price:** When Brent is high, the dollar import value is large, so FX income rises with oil — this is a natural hedge for the bank. The returns correlation r(FX, Indian Basket) = {RET_CORR.loc['USD/INR','Indian Basket']:.3f} confirms this linkage.
-""")
-
-    # ── Formula 4 ──────────────────────────────
-    with st.expander("4 · Fee Income (₹ Cr / month)", expanded=True):
-        st.code("""Fee Income = Import Bill (₹ Cr) × 0.15%""", language=None)
-        st.markdown("""
-**Why 0.15%?**
-
-- This 15 basis point rate represents the blended monthly income from three trade finance products the bank earns on each OMC relationship:
-  - **LC issuance fee** — charged when the bank opens a Letter of Credit guaranteeing payment to the oil seller.
-  - **Bank Guarantee commission** — charged for guaranteeing the OMC's performance obligations.
-  - **Trade finance processing** — documentation, discrepancy handling, amendment fees.
-- 0.15%/month equates to ~1.8% per annum, which is the typical all-in fee rate for PSU OMC trade finance mandates in India.
-- **Directly Brent-driven:** Because fee income is a fixed % of the import bill, and the import bill rises with Brent, fee income is effectively an oil-price-linked revenue line for the bank.
-""")
-
-    # ── Formula 5 · OFAC ───────────────────────
-    with st.expander("5 · OFAC Exposure Score (0–100) — Simplified", expanded=True):
-        # Live worked example for currently selected scenario
+    with st.expander("5 - OFAC Exposure Score (0-100)", expanded=True):
         _ex_nayara = OMC[4]
         _ex_iocl   = OMC[0]
-        _A_n = _ex_nayara["ofacW"];  _B_n = _ex_nayara["russianShare"]
-        _A_i = _ex_iocl["ofacW"];    _B_i = _ex_iocl["russianShare"]
+        _A_n = _ex_nayara["ofacW"]
+        _B_n = _ex_nayara["russianShare"]
+        _A_i = _ex_iocl["ofacW"]
+        _B_i = _ex_iocl["russianShare"]
         _C   = OFAC_ENV[ofac_v]
         _D   = 1 + (min(urals, URALS_CEIL) / URALS_CEIL) * 0.50
         _raw_n = _A_n * _B_n * _C * _D * 25
         _raw_i = _A_i * _B_i * _C * _D * 25
 
-        st.code("""Score = min( A × B × C × D × 25 , 100 )
+        st.code(
+            "Score = min( A x B x C x D x 25 , 100 )\n\n"
+            "A = Base Institutional Weight   (fixed per OMC)\n"
+            "B = Russian Share               (fraction of total crude that is Russian, 0 to 1)\n"
+            "C = Sanction Environment        (Low=1.0, Medium=1.5, High=3.0)\n"
+            "D = Urals Pressure Amplifier    (1.0 to 1.5 as discount rises $0 to $15)\n\n"
+            "D = 1 + ( min(Urals discount, $15) / $15 ) x 0.50\n\n"
+            "x 25 = scaling factor to map result to 0-100 range\n"
+            "min(..., 100) = hard cap so no entity exceeds 100",
+            language=None
+        )
 
-A = Base Institutional Weight   (fixed per OMC; see table below)
-B = Russian Share               (fraction of total crude that is Russian, 0–1)
-C = Sanction Environment        (Low=1.0 · Medium=1.5 · High=3.0)
-D = Urals Pressure Amplifier    (1.0 → 1.5 as Urals discount rises from $0 → $15)
+        st.markdown("**What each component measures:**")
 
-D = 1 + ( min(Urals discount, $15) / $15 ) × 0.50
+        st.markdown(
+            "**A - Base Institutional Weight** (fixed; reflects ownership and SDN proximity)\n\n"
+            "| OMC | A | Reason |\n"
+            "|---|---|---|\n"
+            "| Reliance | **0** | Negligible Russian crude (~5%); no SDN-adjacent ownership |\n"
+            "| IOCL | **1** | PSU; ~38% Russian crude; no SDN-adjacent owner; government policy provides buffer |\n"
+            "| BPCL | **2** | PSU; ~37% Russian crude; higher weight due to larger absolute transaction volume sensitivity |\n"
+            "| HPCL | **2** | Same rationale as BPCL |\n"
+            "| Nayara | **4** | Rosneft owns ~49% of Nayara. Rosneft is on the OFAC SDN list. "
+            "Any transaction involving Nayara is structurally proximate to a sanctioned entity. |\n"
+        )
 
-× 25 = scaling factor to map the result to a 0–100 range
-min( …, 100 ) = hard cap so no entity exceeds 100""", language=None)
+        st.markdown(
+            "**B - Russian Share** - the more Russian crude an OMC buys, the more transactions potentially "
+            "touch sanctioned supply chains. Nayara at 82.5% has roughly 2x the surface area of IOCL at 38.5%.\n\n"
+            "**C - Sanction Environment Multiplier** - how aggressively OFAC is currently enforcing:\n\n"
+            "- **Low (1.0):** Normal environment; no active enforcement against Indian buyers.\n"
+            "- **Medium (1.5):** Policy shift - new advisories, secondary-sanction warnings, pressure on correspondent banks. "
+            "Not yet enforcement, but compliance cost rises materially.\n"
+            "- **High (3.0):** Active enforcement - designations of intermediaries, withdrawal of correspondent banks, blocked transactions. "
+            "Risk is 3x base. Medium is 1.5 not 2.0 because the step from Low to Medium is a policy signal; "
+            "the step from Medium to High is an enforcement action - a much larger real-world consequence.\n\n"
+            "**D - Urals Pressure Amplifier** - a large Urals discount signals that compliant buyers are avoiding Russian crude. "
+            "Russia can only sell cheaply because sanctions-adjacent intermediaries are the only willing buyers. "
+            "An OMC continuing to buy at a large discount faces higher regulatory scrutiny:\n\n"
+            "- D at Urals=$0  : 1 + (0/15) x 0.50  = 1.00  (no amplification)\n"
+            "- D at Urals=$7.5: 1 + (7.5/15) x 0.50 = 1.25  (25% amplification)\n"
+            "- D at Urals=$15 : 1 + (15/15) x 0.50 = 1.50  (50% amplification)\n"
+            "- D at Urals>$15 : capped at $15 in formula, D stays at 1.50\n\n"
+            "The $15 ceiling is the 90th percentile of observed FY25-26 discounts.\n\n"
+            "**x 25 - scale calibration:** The raw product A x B x C x D produces small decimals "
+            "(e.g. IOCL base: 1 x 0.385 x 1.0 x 1.0 = 0.385). Multiplying by 25 maps IOCL base to ~9.6 "
+            "(appropriately low) and allows Nayara severe case to reach 100 (the cap)."
+        )
 
-        st.markdown(f"""
----
-**What each component measures :**
+        st.markdown("---")
+        st.markdown(f"**Worked example - current scenario ({OFAC_LABELS[ofac_v]} OFAC, Urals=${urals:.1f}/bbl):**")
+        st.markdown(
+            f"| Step | Nayara | IOCL |\n"
+            f"|---|---|---|\n"
+            f"| A (institutional weight) | {_A_n} | {_A_i} |\n"
+            f"| B (Russian share) | {_B_n:.3f} | {_B_i:.3f} |\n"
+            f"| C (environment) | {_C:.1f} | {_C:.1f} |\n"
+            f"| D (Urals amplifier) | {_D:.3f} | {_D:.3f} |\n"
+            f"| A x B x C x D x 25 (raw) | **{_raw_n:.1f}** | **{_raw_i:.1f}** |\n"
+            f"| Final score (capped 100) | **{min(100,round(_raw_n))}** | **{min(100,round(_raw_i))}** |\n"
+        )
 
-**A · Base Institutional Weight**
-
-| OMC | A | 
-|---|---|---|
-| Reliance | **0** | 
-| IOCL | **1** | 
-| BPCL | **2** | 
-| HPCL | **2** | 
-| Nayara | **4** | 
-**B · Russian Share** — straightforward percentage. The more Russian crude an OMC buys, the more transactions potentially touch sanctioned supply chains. Nayara at 82.5% has ~2× the surface area of IOCL at 38.5%.
-
-**C · Sanction Environment Multiplier** — how aggressively OFAC is currently enforcing:
-- **Low (1.0):** Normal environment; OFAC advisories in place but no active enforcement against Indian buyers.
-- **Medium (1.5):** Policy shift — new advisories, secondary-sanction warnings, or pressure on correspondent banks. Not yet enforcement, but compliance cost rises materially.
-- **High (3.0):** Active enforcement — designations of intermediaries, withdrawal of correspondent banks, blocked transactions. Risk is 3× base.
-
-*(Note: Medium is 1.5, not 2.0. The step from Low→Medium is a policy signal; the step from Medium→High is an enforcement action — a much larger jump in real consequence.)*
-
-**D · Urals Pressure Amplifier** — why does the Urals discount affect OFAC risk?
-
-A large discount on Urals crude signals that **compliant buyers are avoiding Russian crude**. Russia can only sell at a steep discount because sanctioned entities or sanctions-adjacent intermediaries are the only willing buyers. An OMC that continues buying at a large discount is therefore:
-
-The amplifier goes from **1.0 at $0 discount** (no signal) to **1.5 at the $15 ceiling** (50% additional scrutiny pressure). The $15 ceiling is the **90th percentile of observed FY25–26 discounts** — beyond this level the discount is in genuinely extreme territory.
-
-```
-D at Urals=$0  : 1 + (0/15) × 0.50  = 1.00   (no amplification)
-D at Urals=$7.5: 1 + (7.5/15) × 0.50 = 1.25  (25% amplification)
-D at Urals=$15 : 1 + (15/15) × 0.50 = 1.50   (50% amplification)
-D at Urals>$15 : capped at $15 in formula → D stays at 1.50
-```
-
-**× 25 — scale calibration:**
-The raw product A×B×C×D produces small decimals (e.g. 1 × 0.385 × 1.0 × 1.0 = 0.385). Multiplying by 25 maps IOCL's base case to ~9.6 (appropriately low) and allows Nayara's severe case to reach 100 (the cap). Without this factor the numbers would sit between 0 and 4, which is hard to interpret.
-
----
-**Worked example — current scenario ({OFAC_LABELS[ofac_v]} OFAC · Urals=${urals:.1f}/bbl):**
-
-| Step | Nayara | IOCL |
-|---|---|---|
-| A (institutional weight) | {_A_n} | {_A_i} |
-| B (Russian share) | {_B_n:.3f} | {_B_i:.3f} |
-| C (environment) | {_C:.1f} | {_C:.1f} |
-| D (Urals amplifier) | {_D:.3f} | {_D:.3f} |
-| A×B×C×D×25 (raw) | **{_raw_n:.1f}** | **{_raw_i:.1f}** |
-| Final score (capped 100) | **{min(100,round(_raw_n))}** | **{min(100,round(_raw_i))}** |
-""")
-
-    # ── Formula 6 ──────────────────────────────
-    with st.expander("6 · Overall Risk Score", expanded=True):
-        st.code("""Overall Score = (Oil score    × 0.25)
-              + (FX score     × 0.20)
-              + (Russia score × 0.20)
-              + (OFAC÷25      × 0.35)
-
-Rating thresholds:
-  Very High  ≥ 3.2
-  High       ≥ 2.5
-  Medium     ≥ 1.8
-  Low        < 1.8""", language=None)
-        st.markdown(f"""
-
+    with st.expander("6 - Overall Risk Score", expanded=True):
+        st.code(
+            "Overall Score = (Oil score    x 0.25)\n"
+            "              + (FX score     x 0.20)\n"
+            "              + (Russia score x 0.20)\n"
+            "              + (OFAC / 25   x 0.35)\n\n"
+            "Rating thresholds:\n"
+            "  Very High  >= 3.2\n"
+            "  High       >= 2.5\n"
+            "  Medium     >= 1.8\n"
+            "  Low        <  1.8",
+            language=None
+        )
+        st.markdown(
+            "**What each sub-score measures:**\n\n"
+            "**Oil score (weight 25%)** - sensitivity to crude price movements. Scale: Low=1, Medium=2, High=3.\n"
+            "Assigned based on the OMC's refining margin exposure. IOCL is Medium because its large throughput "
+            "and diverse product slate give it more pricing power. BPCL and HPCL are High because their margins "
+            "are thinner relative to crude exposure.\n\n"
+            "**FX score (weight 20%)** - sensitivity to USD/INR movements. Same 1/2/3 scale. All PSU OMCs are "
+            "High because they import in USD and sell in INR - a weaker rupee directly expands working capital "
+            "with no natural hedge. Reliance and Nayara are Medium because significant export revenues in USD "
+            "provide a partial natural hedge.\n\n"
+            "**Russia score (weight 20%)** - structural exposure to Russian supply chains.\n"
+            "- Greater than 50% Russian share = 4 (majority of supply from a single sanctioned origin)\n"
+            "- Greater than 30% Russian share = 3\n"
+            "- 30% or less = 2\n\n"
+            "This is separate from OFAC score - it captures supply disruption risk "
+            "(what if Russian supply is suddenly unavailable?) rather than sanctions compliance risk.\n\n"
+            "**OFAC / 25 (weight 35%)** - normalises the 0-100 OFAC score back to a 0-4 scale so it is "
+            "comparable with the other sub-scores (all on a 1-4 scale). OFAC gets the highest weight (35%) "
+            "because it represents a binary cliff risk: an OFAC enforcement action can halt all transactions "
+            "immediately, whereas oil price and FX risks are continuous and hedgeable.\n\n"
+            "**Why these weights?**\n"
+            "- OFAC 35%: enforcement is non-linear - a designation stops business entirely, not just raises costs.\n"
+            "- Oil 25%: significant but manageable through pricing pass-through (GoI APM pricing buffers PSUs).\n"
+            "- Russia supply 20%: OMC can switch supply over a 3-6 month horizon.\n"
+            "- FX 20%: RBI intervention and forward cover limit worst outcomes."
+        )
 
 # ─────────────────────────────────────────────
 # TAB 5 · RISK RANKING
@@ -807,61 +784,61 @@ with tab_risk:
             osc = rd["ofac_score"]
             bar_w = {"VH":100,"H":75,"M":45,"L":20}.get(rv, 20)
             bar_c = risk_color(rv)
-            st.markdown(f"""
-<div style="border:1px solid #e0e0e0;border-radius:8px;padding:10px 14px;margin-bottom:8px">
-  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
-    <span style="font-weight:600;font-size:13px">{o["name"]}</span>
-    <span style="background:{bar_c}22;color:{bar_c};font-size:11px;font-weight:600;
-                 padding:2px 8px;border-radius:20px;border:1px solid {bar_c}88">
-      {risk_label(rv)}
-    </span>
-  </div>
-  <div style="background:#eee;border-radius:3px;height:6px;margin-bottom:8px;overflow:hidden">
-    <div style="width:{bar_w}%;height:6px;border-radius:3px;background:{bar_c}"></div>
-  </div>
-  <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;font-size:11px;color:#666">
-    <span>Russian share: <b>{o["russianShare"]*100:.0f}%</b></span>
-    <span>OFAC score: <b>{osc}/100</b></span>
-    <span>Oil risk: <b>{o["oilR"]}</b></span>
-    <span>FX risk: <b>{o["fxR"]}</b></span>
-  </div>
-</div>""", unsafe_allow_html=True)
+            st.markdown(
+                f'<div style="border:1px solid #e0e0e0;border-radius:8px;padding:10px 14px;margin-bottom:8px">'
+                f'<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">'
+                f'<span style="font-weight:600;font-size:13px">{o["name"]}</span>'
+                f'<span style="background:{bar_c}22;color:{bar_c};font-size:11px;font-weight:600;'
+                f'padding:2px 8px;border-radius:20px;border:1px solid {bar_c}88">'
+                f'{risk_label(rv)}</span></div>'
+                f'<div style="background:#eee;border-radius:3px;height:6px;margin-bottom:8px;overflow:hidden">'
+                f'<div style="width:{bar_w}%;height:6px;border-radius:3px;background:{bar_c}"></div></div>'
+                f'<div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;font-size:11px;color:#666">'
+                f'<span>Russian share: <b>{o["russianShare"]*100:.0f}%</b></span>'
+                f'<span>OFAC score: <b>{osc}/100</b></span>'
+                f'<span>Oil risk: <b>{o["oilR"]}</b></span>'
+                f'<span>FX risk: <b>{o["fxR"]}</b></span>'
+                f'</div></div>',
+                unsafe_allow_html=True
+            )
 
     with col_actions:
         st.markdown("##### Action Signals")
         actions = []
         if brent >= 100:
-            actions.append(("🔴 Brent > $100", "Review LC limits & collateral for all PSU OMCs"))
+            actions.append(("Red - Brent > $100", "Review LC limits and collateral for all PSU OMCs"))
         elif brent >= 80:
-            actions.append(("🟡 Brent $80–100", "Monitor LC utilisation; pre-approve headroom"))
+            actions.append(("Amber - Brent $80-100", "Monitor LC utilisation; pre-approve headroom"))
         else:
-            actions.append(("🟢 Brent normal", "Standard LC monitoring in place"))
+            actions.append(("Green - Brent normal", "Standard LC monitoring in place"))
         if fx >= 90:
-            actions.append(("🔴 FX > ₹90", "Review FX settlement terms; flag rupee liquidity risk"))
+            actions.append(("Red - FX > Rs90", "Review FX settlement terms; flag rupee liquidity risk"))
         elif fx >= 84:
-            actions.append(("🟡 FX ₹84–90", "Track daily settlement; flag rupee liquidity"))
+            actions.append(("Amber - FX Rs84-90", "Track daily settlement; flag rupee liquidity"))
         if urals >= 15:
-            actions.append(("🔴 Urals ≥ $15 ceiling", "Escalate KYC on DMCC intermediaries"))
+            actions.append(("Red - Urals >= $15 ceiling", "Escalate KYC on DMCC intermediaries"))
         elif urals >= 8:
-            actions.append(("🟡 Urals $8–15", "Monitor routing; check correspondent appetite"))
+            actions.append(("Amber - Urals $8-15", "Monitor routing; check correspondent appetite"))
         if ofac_v >= 2:
-            actions.append(("🔴 OFAC High", "Mandatory escalation; hold Nayara disbursements"))
+            actions.append(("Red - OFAC High", "Mandatory escalation; hold Nayara disbursements"))
         elif ofac_v == 1:
-            actions.append(("🟡 OFAC Medium", "Enhanced sanctions screening required"))
+            actions.append(("Amber - OFAC Medium", "Enhanced sanctions screening required"))
 
         for trigger, text in actions:
-            st.markdown(f"""
-<div style="padding:8px 0;border-bottom:1px solid #f0f0f0">
-  <div style="font-size:11px;color:#888;margin-bottom:2px">{trigger}</div>
-  <div style="font-size:12px;line-height:1.5">{text}</div>
-</div>""", unsafe_allow_html=True)
+            st.markdown(
+                f'<div style="padding:8px 0;border-bottom:1px solid #f0f0f0">'
+                f'<div style="font-size:11px;color:#888;margin-bottom:2px">{trigger}</div>'
+                f'<div style="font-size:12px;line-height:1.5">{text}</div>'
+                f'</div>',
+                unsafe_allow_html=True
+            )
 
         st.markdown("---")
         st.markdown("##### Summary Table")
         st.dataframe(pd.DataFrame([{
             "OMC":        o["name"],
-            "Bill (₹Cr)": import_bill(o, brent, fx, urals),
-            "WC Δ (₹Cr)": import_bill(o, brent, fx, urals) - import_bill(o, BASE["brent"], BASE["fx"], BASE["urals"]),
+            "Bill (Rs Cr)": import_bill(o, brent, fx, urals),
+            "WC Delta (Rs Cr)": import_bill(o, brent, fx, urals) - import_bill(o, BASE["brent"], BASE["fx"], BASE["urals"]),
             "OFAC":       ofac_score(o, ofac_v, urals),
             "Risk":       risk_label(overall_risk(o, ofac_v, urals)),
         } for o in OMC]), hide_index=True, use_container_width=True)
