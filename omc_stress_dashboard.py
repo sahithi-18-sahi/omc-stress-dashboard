@@ -138,7 +138,7 @@ def fx_income(o, brent, fx, urals):
     return round((r_b * r_p + n_b * brent) * 0.0005 * fx / 1e7)
 
 def fee_income(bill):
-    return round(bill * 0.0015)
+    return round(bill * 0.00008)
 
 def ofac_score(o, ofac_v, urals):
     A   = o["ofacW"]
@@ -608,7 +608,6 @@ with tab_formulas:
         st.markdown(
             "Base = $75 Brent, Rs85 FX, $5 Urals (FY24 normal environment). "
             "A positive result means the OMC needs additional LC headroom vs normal operations. "
-            "Banks use this to pre-approve credit lines before stress materialises."
         )
 
     with st.expander("3 - FX Income (Rs Cr / month)", expanded=True):
@@ -625,9 +624,9 @@ with tab_formulas:
         )
 
     with st.expander("4 - Fee Income (Rs Cr / month)", expanded=True):
-        st.code("Fee Income = Import Bill (Rs Cr) x 0.15%", language=None)
+        st.code("Fee Income = Import Bill (Rs Cr) x 0.008%", language=None)
         st.markdown(
-            "15 bps/month (~1.8% p.a.) is the blended rate for LC issuance, Bank Guarantee commission, "
+            "0.08% /month  is the blended rate for LC issuance, Bank Guarantee commission, "
             "and trade finance processing fees. Scales directly with the import bill, so it rises with Brent."
         )
 
