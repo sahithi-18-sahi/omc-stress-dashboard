@@ -100,23 +100,39 @@ W_RU   = 0.20
 W_OFAC = 0.35
 
 # OFAC environment multiplier
-#   Low=1.0  → normal; no enforcement escalation
-#   Medium=1.5 → policy shift / advisory (not enforcement)
-#   High=3.0 → active enforcement; correspondent banks pulling back
+#   Low=1.0  -> normal; no enforcement escalation
+#   Medium=1.5 -> policy shift / advisory (not enforcement)
+#   High=3.0 -> active enforcement; correspondent banks pulling back
 OFAC_ENV = [1.0, 1.5, 3.0]
 
 # Urals ceiling = 90th percentile of observed FY25-26 discounts
 URALS_CEIL = 15.0
 
+# ─────────────────────────────────────────────
+# OMC DATA — UPDATED RUSSIAN SHARES (FY25-26)
+# ─────────────────────────────────────────────
+# Russian share changes vs prior version:
+#   IOCL:     38.5% -> 22.0%   diversified away; Russia score drops to 2; OFAC score falls
+#   BPCL:     36.5% -> 34.5%   marginal reduction; Russia score stays 3
+#   HPCL:     35.0% -> 35.0%   unchanged
+#   Reliance:  5.0% -> 57.0%   major increase; upgrades oilR/fxR to H; ofacW 0->2; Russia score 1->4
+#   Nayara:   82.5% -> 90.0%   near-total Russian dependency confirmed
+#
+# ofacW rationale:
+#   IOCL   = 1  PSU; GL-133 covered; Russian share now reduced to 22%
+#   BPCL   = 2  PSU; 34.5% Russian share; material OFAC surface
+#   HPCL   = 2  PSU; 35% Russian share; material OFAC surface
+#   Reliance = 2  Private but 57% Russian share warrants weight equivalent to PSU OMCs
+#   Nayara = 4  Rosneft (~49% owner) on OFAC SDN list; 90% Russian share
 OMC = [
-    {"id":"iocl",   "name":"IOCL",     "throughput":71.56, "russianShare":0.385, "oilR":"M","fxR":"H","ofacW":1},
-    {"id":"bpcl",   "name":"BPCL",     "throughput":40.51, "russianShare":0.365, "oilR":"H","fxR":"H","ofacW":2},
+    {"id":"iocl",   "name":"IOCL",     "throughput":71.56, "russianShare":0.220, "oilR":"M","fxR":"H","ofacW":1},
+    {"id":"bpcl",   "name":"BPCL",     "throughput":40.51, "russianShare":0.345, "oilR":"H","fxR":"H","ofacW":2},
     {"id":"hpcl",   "name":"HPCL",     "throughput":25.27, "russianShare":0.350, "oilR":"H","fxR":"H","ofacW":2},
-    {"id":"ril",    "name":"Reliance", "throughput":80.50, "russianShare":0.050, "oilR":"M","fxR":"M","ofacW":0},
-    {"id":"nayara", "name":"Nayara",   "throughput":20.49, "russianShare":0.825, "oilR":"M","fxR":"M","ofacW":4},
+    {"id":"ril",    "name":"Reliance", "throughput":80.50, "russianShare":0.570, "oilR":"H","fxR":"H","ofacW":2},
+    {"id":"nayara", "name":"Nayara",   "throughput":20.49, "russianShare":0.900, "oilR":"M","fxR":"M","ofacW":4},
 ]
 PSU      = OMC[:3]
-OFAC_SET = [OMC[0], OMC[1], OMC[2], OMC[4]]
+OFAC_SET = [OMC[0], OMC[1], OMC[2], OMC[4]]   # PSU OMCs + Nayara; Reliance private sector
 
 # ─────────────────────────────────────────────
 # CORE FORMULAE
@@ -152,6 +168,7 @@ def overall_risk(o, ofac_v, urals):
     oil_s = {"M": 2, "H": 3, "L": 1}.get(o["oilR"], 2)
     fx_s  = {"M": 2, "H": 3, "L": 1}.get(o["fxR"], 2)
     ofc   = ofac_score(o, ofac_v, urals)
+    # Russia score: >50% = 4, >30% = 3, else = 2
     r_s   = 4 if o["russianShare"] > 0.5 else (3 if o["russianShare"] > 0.3 else 2)
     t = oil_s * W_OIL + fx_s * W_FX + (ofc / 25) * W_OFAC + r_s * W_RU
     return "VH" if t >= 3.2 else ("H" if t >= 2.5 else ("M" if t >= 1.8 else "L"))
@@ -241,7 +258,7 @@ tab_metrics, tab_charts, tab_corr, tab_formulas, tab_risk = st.tabs([
     "Output Metrics", "Charts", "Correlation Analysis", "Formulas", "Risk Ranking"
 ])
 
-# ── COMPUTE ──────────────────────────────────
+# COMPUTE
 bills   = {o["id"]: import_bill(o, brent, fx, urals)                        for o in OMC}
 bills0  = {o["id"]: import_bill(o, BASE["brent"], BASE["fx"], BASE["urals"]) for o in OMC}
 fx_inc  = {o["id"]: fx_income(o, brent, fx, urals)                          for o in OMC}
@@ -316,7 +333,7 @@ with tab_charts:
             y=[ofacs[o["id"]] for o in OFAC_SET],
             marker_color=[PALETTE[0],PALETTE[1],PALETTE[2],PALETTE[4]],
             text=[str(ofacs[o["id"]]) for o in OFAC_SET], textposition="outside"))
-        fig.update_layout(title="OFAC Exposure Score (0-100)", height=280,
+        fig.update_layout(title="OFAC Exposure Score (0-100) — PSU OMCs + Nayara", height=280,
                           showlegend=False, margin=dict(t=40,b=10,l=10,r=10))
         st.plotly_chart(fig, use_container_width=True)
 
@@ -334,6 +351,19 @@ with tab_charts:
             text=[f'{v:+,}' for v in wc_vals], textposition="outside"))
         fig.update_layout(title="WC Stress vs Base (Rs Cr)", height=280,
                           showlegend=False, margin=dict(t=40,b=10,l=10,r=10))
+        st.plotly_chart(fig, use_container_width=True)
+
+        # Russian share bar chart
+        fig = go.Figure(go.Bar(
+            x=[o["name"] for o in OMC],
+            y=[o["russianShare"]*100 for o in OMC],
+            marker_color=PALETTE,
+            text=[f'{o["russianShare"]*100:.0f}%' for o in OMC],
+            textposition="outside"
+        ))
+        fig.update_layout(title="Russian Crude Share % (Updated FY25-26)", height=280,
+                          showlegend=False, margin=dict(t=40,b=10,l=10,r=10),
+                          yaxis_title="%", yaxis=dict(range=[0,110]))
         st.plotly_chart(fig, use_container_width=True)
 
     st.markdown("##### Scenario Comparison - Import Bill: Base vs Moderate vs Severe")
@@ -607,7 +637,7 @@ with tab_formulas:
         )
         st.markdown(
             "Base = $75 Brent, Rs85 FX, $5 Urals (FY24 normal environment). "
-            "A positive result means the OMC needs additional LC headroom vs normal operations. "
+            "A positive result means the OMC needs additional LC headroom vs normal operations."
         )
 
     with st.expander("3 - FX Income (Rs Cr / month)", expanded=True):
@@ -619,15 +649,14 @@ with tab_formulas:
         )
         st.markdown(
             "- **0.05% (5 bps)** - standard wholesale FX settlement spread earned on every dollar converted for crude payment.\n"
-            "- **Total Import USD** - same dollar value computed in the Import Bill formula.\n"
             "- FX income rises with Brent since a larger import bill means more USD flowing through the bank."
         )
 
     with st.expander("4 - Fee Income (Rs Cr / month)", expanded=True):
         st.code("Fee Income = Import Bill (Rs Cr) x 0.008%", language=None)
         st.markdown(
-            "0.08% /month  is the blended rate for LC issuance, Bank Guarantee commission, "
-            "and trade finance processing fees. Scales directly with the import bill, so it rises with Brent."
+            "0.008% is the blended rate for LC issuance, Bank Guarantee commission, "
+            "and trade finance processing fees. Scales directly with the import bill."
         )
 
     with st.expander("5 - OFAC Exposure Score (0-100)", expanded=True):
@@ -655,17 +684,18 @@ with tab_formulas:
         )
 
         st.markdown(
-            "**A - Base Institutional Weight** reflects ownership and SDN proximity. "
-            "Weights: Reliance=0, IOCL=1, BPCL=2, HPCL=2, Nayara=4. "
-            "Nayara scores highest because Rosneft (~49% owner) is on the OFAC SDN list, "
-            "making every Nayara transaction structurally proximate to a sanctioned entity.\n\n"
-            "**B - Russian Share** is simply the fraction of crude sourced from Russia. "
-            "Higher share = larger transaction surface area exposed to sanctions risk.\n\n"
-            "**C - Sanction Environment:** Low (1.0) = normal; Medium (1.5) = policy shift / advisories; "
-            "High (3.0) = active enforcement. Medium is 1.5 not 2.0 - a policy signal is a smaller step than an enforcement action.\n\n"
-            "**D - Urals Pressure Amplifier:** A large Urals discount signals compliant buyers are avoiding Russian crude. "
-            "OMCs still buying face higher scrutiny. Ranges from 1.0 (no discount) to 1.5 (at the $15 ceiling, "
-            "which is the 90th percentile of observed FY25-26 discounts).\n\n"
+            "**A - Base Institutional Weight (updated for revised Russian shares):**\n\n"
+            "| OMC | A Weight | Rationale |\n"
+            "|---|---|---|\n"
+            "| IOCL | 1 | PSU; GL-133 covered; Russian share reduced to 22% — lower OFAC surface |\n"
+            "| BPCL | 2 | PSU; 34.5% Russian share; material OFAC surface area |\n"
+            "| HPCL | 2 | PSU; 35% Russian share; material OFAC surface area |\n"
+            "| Reliance | — | Excluded from OFAC chart (private; USD exports provide structural hedge) |\n"
+            "| Nayara | 4 | Rosneft (~49% owner) on OFAC SDN list; 90% Russian share |\n\n"
+            "**B - Russian Share** is the fraction sourced from Russia. "
+            "Higher share = larger transaction surface exposed to sanctions risk.\n\n"
+            "**C - Sanction Environment:** Low (1.0); Medium (1.5) = policy shift; High (3.0) = active enforcement.\n\n"
+            "**D - Urals Pressure Amplifier:** 1.0 (no discount) to 1.5 (at $15 ceiling).\n\n"
             "**x 25** maps the raw decimal output to a readable 0-100 scale."
         )
 
@@ -696,14 +726,29 @@ with tab_formulas:
             language=None
         )
         st.markdown(
-            "**Oil score (25%)** - crude price sensitivity. L=1, M=2, H=3. IOCL is Medium (large throughput, diverse slate); "
-            "BPCL and HPCL are High (thinner refining margins).\n\n"
-            "**FX score (20%)** - USD/INR sensitivity. PSU OMCs are High (import in USD, sell in INR, no natural hedge). "
-            "Reliance and Nayara are Medium (USD export revenues provide partial hedge).\n\n"
-            "**Russia score (20%)** - supply concentration risk. >50% share = 4; >30% = 3; else = 2. "
-            "Separate from OFAC - captures supply disruption risk if Russian volumes are suddenly unavailable.\n\n"
-            "**OFAC / 25 (35%)** - highest weight because OFAC enforcement is a binary cliff: "
-            "a designation can halt all transactions immediately. Oil and FX risks are continuous and hedgeable; OFAC is not."
+            "**Oil score (25%)** — crude price sensitivity. L=1, M=2, H=3.\n"
+            "- IOCL: Medium — largest, most diversified throughput; Russian share now 22% reduces sensitivity\n"
+            "- BPCL / HPCL: High — thinner refining margins; meaningful Russian exposure\n"
+            "- Reliance: High — 57% Russian share creates significant crude cost sensitivity; upgraded from M\n"
+            "- Nayara: Medium — single-refinery; Russia discount partially offsets price risk\n\n"
+            "**FX score (20%)** — USD/INR sensitivity.\n"
+            "- PSU OMCs: High — import in USD, sell in INR, no natural hedge\n"
+            "- Reliance: High — upgraded from M; 57% Russian crude now dominates import bill despite USD export revenues\n"
+            "- Nayara: Medium — Rosneft-linked; some USD revenue offset\n\n"
+            "**Russia score (20%)** — supply concentration risk. >50% share = 4; >30% = 3; else = 2.\n"
+            "- Nayara (90%) = 4, Reliance (57%) = 4, HPCL (35%) = 3, BPCL (34.5%) = 3, IOCL (22%) = 2\n\n"
+            "**OFAC / 25 (35%)** — highest weight: OFAC enforcement is a binary cliff, not a continuous risk."
+        )
+
+    with st.expander("7 - Russian Share Changes Summary", expanded=True):
+        st.markdown(
+            "| OMC | Previous Ru% | Updated Ru% | Change | Key Impact on Model |\n"
+            "|---|---|---|---|---|\n"
+            "| IOCL | 38.5% | **22.0%** | -16.5pp | OFAC score falls; Russia score 3 -> 2 |\n"
+            "| BPCL | 36.5% | **34.5%** | -2.0pp | Marginal OFAC reduction; Russia score stays 3 |\n"
+            "| HPCL | 35.0% | **35.0%** | No change | Unchanged across all dimensions |\n"
+            "| Reliance | 5.0% | **57.0%** | +52.0pp | Major upgrade: oilR/fxR H; Russia score 1->4; ofacW 0->2 |\n"
+            "| Nayara | 82.5% | **90.0%** | +7.5pp | Near-total Russian dependency; OFAC score nudges higher |\n"
         )
 
 # ─────────────────────────────────────────────
@@ -762,9 +807,9 @@ with tab_risk:
         elif urals >= 8:
             actions.append(("Amber - Urals $8-15", "Monitor routing; check correspondent appetite"))
         if ofac_v >= 2:
-            actions.append(("Red - OFAC High", "Mandatory escalation; hold Nayara disbursements"))
+            actions.append(("Red - OFAC High", "Mandatory escalation; hold Nayara disbursements; review Reliance Russian volumes"))
         elif ofac_v == 1:
-            actions.append(("Amber - OFAC Medium", "Enhanced sanctions screening required"))
+            actions.append(("Amber - OFAC Medium", "Enhanced screening; flag Reliance Russian crude routing"))
 
         for trigger, text in actions:
             st.markdown(
@@ -778,9 +823,10 @@ with tab_risk:
         st.markdown("---")
         st.markdown("##### Summary Table")
         st.dataframe(pd.DataFrame([{
-            "OMC":        o["name"],
-            "Bill (Rs Cr)": import_bill(o, brent, fx, urals),
+            "OMC":              o["name"],
+            "Ru%":              f'{o["russianShare"]*100:.0f}%',
+            "Bill (Rs Cr)":     import_bill(o, brent, fx, urals),
             "WC Delta (Rs Cr)": import_bill(o, brent, fx, urals) - import_bill(o, BASE["brent"], BASE["fx"], BASE["urals"]),
-            "OFAC":       ofac_score(o, ofac_v, urals),
-            "Risk":       risk_label(overall_risk(o, ofac_v, urals)),
+            "OFAC Score":       ofac_score(o, ofac_v, urals) if o in OFAC_SET else "—",
+            "Risk":             risk_label(overall_risk(o, ofac_v, urals)),
         } for o in OMC]), hide_index=True, use_container_width=True)
