@@ -110,10 +110,10 @@ URALS_CEIL = 15.0
 
 OMC = [
     {"id":"iocl",   "name":"IOCL",     "throughput":71.56, "russianShare":0.385, "oilR":"M","fxR":"H","ofacW":1},
-    {"id":"bpcl",   "name":"BPCL",     "throughput":43.50, "russianShare":0.365, "oilR":"H","fxR":"H","ofacW":2},
-    {"id":"hpcl",   "name":"HPCL",     "throughput":26.04, "russianShare":0.350, "oilR":"H","fxR":"H","ofacW":2},
-    {"id":"ril",    "name":"Reliance", "throughput":80.00, "russianShare":0.050, "oilR":"M","fxR":"M","ofacW":0},
-    {"id":"nayara", "name":"Nayara",   "throughput":20.00, "russianShare":0.825, "oilR":"M","fxR":"M","ofacW":4},
+    {"id":"bpcl",   "name":"BPCL",     "throughput":40.51, "russianShare":0.365, "oilR":"H","fxR":"H","ofacW":2},
+    {"id":"hpcl",   "name":"HPCL",     "throughput":25.27, "russianShare":0.350, "oilR":"H","fxR":"H","ofacW":2},
+    {"id":"ril",    "name":"Reliance", "throughput":80.50, "russianShare":0.050, "oilR":"M","fxR":"M","ofacW":0},
+    {"id":"nayara", "name":"Nayara",   "throughput":20.49, "russianShare":0.825, "oilR":"M","fxR":"M","ofacW":4},
 ]
 PSU      = OMC[:3]
 OFAC_SET = [OMC[0], OMC[1], OMC[2], OMC[4]]
