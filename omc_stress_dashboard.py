@@ -684,7 +684,7 @@ with tab_formulas:
         )
 
         st.markdown(
-            "**A - Base Institutional Weight (updated for revised Russian shares):**\n\n"
+            "**A - Base Institutional Weight (for Russian share):**\n\n"
             "| OMC | A Weight |\n"
             "|---|---|\n"
             "| IOCL | 1 | \n"
