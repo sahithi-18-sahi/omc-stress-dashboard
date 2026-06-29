@@ -132,7 +132,7 @@ OMC = [
     {"id":"nayara", "name":"Nayara",   "throughput":20.49, "russianShare":0.900, "oilR":"M","fxR":"M","ofacW":4},
 ]
 PSU      = OMC[:3]
-OFAC_SET = [OMC[0], OMC[1], OMC[2], OMC[4]]   # PSU OMCs + Nayara; Reliance private sector
+OFAC_SET = OMC  # All five OMCs included in OFAC scoring
 
 # ─────────────────────────────────────────────
 # CORE FORMULAE
@@ -302,7 +302,7 @@ with tab_metrics:
     st.divider()
 
     st.markdown("##### OFAC Exposure Score (0-100)")
-    cols = st.columns(4)
+    cols = st.columns(5)
     for i, o in enumerate(OFAC_SET):
         d = ofacs[o["id"]] - ofacs0[o["id"]]
         cols[i].metric(o["name"], f'{ofacs[o["id"]]}/100',
@@ -331,9 +331,9 @@ with tab_charts:
 
         fig = go.Figure(go.Bar(x=[o["name"] for o in OFAC_SET],
             y=[ofacs[o["id"]] for o in OFAC_SET],
-            marker_color=[PALETTE[0],PALETTE[1],PALETTE[2],PALETTE[4]],
+            marker_color=PALETTE,
             text=[str(ofacs[o["id"]]) for o in OFAC_SET], textposition="outside"))
-        fig.update_layout(title="OFAC Exposure Score (0-100) — PSU OMCs + Nayara", height=280,
+        fig.update_layout(title="OFAC Exposure Score (0-100) — All OMCs", height=280,
                           showlegend=False, margin=dict(t=40,b=10,l=10,r=10))
         st.plotly_chart(fig, use_container_width=True)
 
@@ -690,7 +690,7 @@ with tab_formulas:
             "| IOCL | 1 | PSU; GL-133 covered; Russian share reduced to 22% — lower OFAC surface |\n"
             "| BPCL | 2 | PSU; 34.5% Russian share; material OFAC surface area |\n"
             "| HPCL | 2 | PSU; 35% Russian share; material OFAC surface area |\n"
-            "| Reliance | — | Excluded from OFAC chart (private; USD exports provide structural hedge) |\n"
+            "| Reliance | 2 | Private; 57% Russian share warrants weight equivalent to PSU OMCs |\n"
             "| Nayara | 4 | Rosneft (~49% owner) on OFAC SDN list; 90% Russian share |\n\n"
             "**B - Russian Share** is the fraction sourced from Russia. "
             "Higher share = larger transaction surface exposed to sanctions risk.\n\n"
@@ -738,17 +738,6 @@ with tab_formulas:
             "**Russia score (20%)** — supply concentration risk. >50% share = 4; >30% = 3; else = 2.\n"
             "- Nayara (90%) = 4, Reliance (57%) = 4, HPCL (35%) = 3, BPCL (34.5%) = 3, IOCL (22%) = 2\n\n"
             "**OFAC / 25 (35%)** — highest weight: OFAC enforcement is a binary cliff, not a continuous risk."
-        )
-
-    with st.expander("7 - Russian Share Changes Summary", expanded=True):
-        st.markdown(
-            "| OMC | Previous Ru% | Updated Ru% | Change | Key Impact on Model |\n"
-            "|---|---|---|---|---|\n"
-            "| IOCL | 38.5% | **22.0%** | -16.5pp | OFAC score falls; Russia score 3 -> 2 |\n"
-            "| BPCL | 36.5% | **34.5%** | -2.0pp | Marginal OFAC reduction; Russia score stays 3 |\n"
-            "| HPCL | 35.0% | **35.0%** | No change | Unchanged across all dimensions |\n"
-            "| Reliance | 5.0% | **57.0%** | +52.0pp | Major upgrade: oilR/fxR H; Russia score 1->4; ofacW 0->2 |\n"
-            "| Nayara | 82.5% | **90.0%** | +7.5pp | Near-total Russian dependency; OFAC score nudges higher |\n"
         )
 
 # ─────────────────────────────────────────────
@@ -827,6 +816,6 @@ with tab_risk:
             "Ru%":              f'{o["russianShare"]*100:.0f}%',
             "Bill (Rs Cr)":     import_bill(o, brent, fx, urals),
             "WC Delta (Rs Cr)": import_bill(o, brent, fx, urals) - import_bill(o, BASE["brent"], BASE["fx"], BASE["urals"]),
-            "OFAC Score":       ofac_score(o, ofac_v, urals) if o in OFAC_SET else "—",
+            "OFAC Score":       ofac_score(o, ofac_v, urals),
             "Risk":             risk_label(overall_risk(o, ofac_v, urals)),
         } for o in OMC]), hide_index=True, use_container_width=True)
