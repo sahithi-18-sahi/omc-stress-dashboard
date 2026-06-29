@@ -129,7 +129,7 @@ OMC = [
     {"id":"bpcl",   "name":"BPCL",     "throughput":40.51, "russianShare":0.345, "oilR":"H","fxR":"H","ofacW":2},
     {"id":"hpcl",   "name":"HPCL",     "throughput":25.27, "russianShare":0.350, "oilR":"H","fxR":"H","ofacW":2},
     {"id":"ril",    "name":"Reliance", "throughput":80.50, "russianShare":0.570, "oilR":"H","fxR":"H","ofacW":2},
-    {"id":"nayara", "name":"Nayara",   "throughput":20.49, "russianShare":0.900, "oilR":"M","fxR":"M","ofacW":4},
+    {"id":"nayara", "name":"Nayara",   "throughput":20.49, "russianShare":0.900, "oilR":"H","fxR":"H","ofacW":4},
 ]
 PSU      = OMC[:3]
 OFAC_SET = OMC  # All five OMCs included in OFAC scoring
@@ -684,13 +684,13 @@ with tab_formulas:
         )
 
         st.markdown(
-            "**A - Base Institutional Weight (for Russian share):**\n\n"
+            "**A - Base Institutional Weight ( for Russian share):**\n\n"
             "| OMC | A Weight |\n"
             "|---|---|\n"
             "| IOCL | 1 | \n"
             "| BPCL | 2 | \n"
-            "| HPCL | 2 | \n"
-            "| Reliance | 3 | \n"
+            "| HPCL | 2 |\n"
+            "| Reliance | 3 |\n"
             "| Nayara | 4 | \n\n"
             "**B - Russian Share** is the fraction sourced from Russia. "
             "Higher share = larger transaction surface exposed to sanctions risk.\n\n"
@@ -730,11 +730,11 @@ with tab_formulas:
             "- IOCL: Medium — largest, most diversified throughput; Russian share now 22% reduces sensitivity\n"
             "- BPCL / HPCL: High — thinner refining margins; meaningful Russian exposure\n"
             "- Reliance: High — 57% Russian share creates significant crude cost sensitivity; upgraded from M\n"
-            "- Nayara: Medium — single-refinery; Russia discount partially offsets price risk\n\n"
+            "- Nayara: High — single-refinery; 90% Russian share creates extreme crude cost sensitivity\n\n"
             "**FX score (20%)** — USD/INR sensitivity.\n"
             "- PSU OMCs: High — import in USD, sell in INR, no natural hedge\n"
             "- Reliance: High — upgraded from M; 57% Russian crude now dominates import bill despite USD export revenues\n"
-            "- Nayara: Medium — Rosneft-linked; some USD revenue offset\n\n"
+            "- Nayara: High — 90% Russian crude; Rosneft linkage limits USD revenue diversification\n\n"
             "**Russia score (20%)** — supply concentration risk. >50% share = 4; >30% = 3; else = 2.\n"
             "- Nayara (90%) = 4, Reliance (57%) = 4, HPCL (35%) = 3, BPCL (34.5%) = 3, IOCL (22%) = 2\n\n"
             "**OFAC / 25 (35%)** — highest weight: OFAC enforcement is a binary cliff, not a continuous risk."
