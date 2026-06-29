@@ -685,8 +685,8 @@ with tab_formulas:
 
         st.markdown(
             "**A - Base Institutional Weight (updated for revised Russian shares):**\n\n"
-            "| OMC | A Weight | Rationale |\n"
-            "|---|---|---|\n"
+            "| OMC | A Weight |\n"
+            "|---|---|\n"
             "| IOCL | 1 | \n"
             "| BPCL | 2 | \n"
             "| HPCL | 2 | \n"
